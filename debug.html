@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Shooter Debug</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        
+        #gameContainer {
+            position: relative;
+            border: 2px solid #333;
+            background-color: #111;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background-color: #000;
+        }
+        
+        #debug {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            font-size: 12px;
+            color: #0f0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="debug">
+            <div>Debug Info:</div>
+            <div id="debugInfo">Loading...</div>
+        </div>
+    </div>
+    <script src="dist/main.js"></script>
+    <script>
+        // Debug script to monitor game state
+        setTimeout(() => {
+            const debugDiv = document.getElementById('debugInfo');
+            
+            setInterval(() => {
+                try {
+                    // Try to access the game instance
+                    const canvas = document.getElementById('gameCanvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    let debugText = `Canvas: ${canvas.width}x${canvas.height}<br>`;
+                    debugText += `Context: ${ctx ? 'OK' : 'FAILED'}<br>`;
+                    
+                    // Check if window has any game-related objects
+                    if (window.game) {
+                        const engine = window.game.getEngine();
+                        const entities = engine.getEntities();
+                        const systems = engine.getSystems();
+                        
+                        debugText += `Entities: ${entities.length}<br>`;
+                        debugText += `Systems: ${systems.length}<br>`;
+                        debugText += `FPS: ${engine.getFPS()}<br>`;
+                        
+                        // List entities
+                        debugText += `<br>Entities:<br>`;
+                        entities.forEach(entity => {
+                            debugText += `- ${entity.id} (active: ${entity.active})<br>`;
+                            const transform = entity.getComponent('transform');
+                            const sprite = entity.getComponent('sprite');
+                            if (transform) {
+                                debugText += `  pos: ${transform.position.x.toFixed(1)}, ${transform.position.y.toFixed(1)}<br>`;
+                            }
+                            if (sprite) {
+                                debugText += `  sprite: ${sprite.width}x${sprite.height}, visible: ${sprite.visible}<br>`;
+                            }
+                        });
+                    } else {
+                        debugText += `Game instance not found<br>`;
+                    }
+                    
+                    debugDiv.innerHTML = debugText;
+                } catch (error) {
+                    debugDiv.innerHTML = `Error: ${error.message}`;
+                }
+            }, 1000);
+        }, 2000);
+    </script>
+</body>
+</html>
