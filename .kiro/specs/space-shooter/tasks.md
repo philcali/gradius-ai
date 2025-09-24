@@ -79,7 +79,7 @@
   - Write unit tests for projectile-obstacle collision handling
   - _Requirements: 4.5, 5.1, 5.2, 5.3_
 
-- [ ] 11. Implement three-weapon system foundation
+- [x] 11. Implement three-weapon system foundation
   - Create Weapon component with three weapon types (beam, missile, special)
   - Implement weapon switching and selection logic
   - Add ammunition tracking for missile and special weapons
