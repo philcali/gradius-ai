@@ -8,14 +8,16 @@ import { Transform } from '../components/Transform';
 import { Sprite } from '../components/Sprite';
 import { Collider, CollisionLayers, CollisionMasks } from '../components/Collider';
 import { Weapon, WeaponType } from '../components/Weapon';
+import { SpecialEffects, SpecialEffectType } from '../components/SpecialEffects';
 import { InputManager } from '../core/InputManager';
-import { createProjectile, BaseProjectile } from './ProjectileTypes';
+import { createProjectile, BaseProjectile, SpecialWeaponType } from './ProjectileTypes';
 
 export class Player extends Entity {
   private transform: Transform;
   private sprite: Sprite;
   private collider: Collider;
   private weapon: Weapon;
+  private specialEffects: SpecialEffects;
   private inputManager: InputManager;
 
   // Movement properties
@@ -51,6 +53,10 @@ export class Player extends Entity {
     // Create and add Weapon component
     this.weapon = new Weapon(WeaponType.BEAM);
     this.addComponent(this.weapon);
+
+    // Create and add SpecialEffects component
+    this.specialEffects = new SpecialEffects();
+    this.addComponent(this.specialEffects);
 
     // Create and add Sprite component
     this.sprite = new Sprite(this.shipWidth, this.shipHeight);
@@ -252,6 +258,11 @@ export class Player extends Entity {
       this.fireMissileWeapon();
     }
 
+    // Special weapon activation - Z key
+    if (this.inputManager.isKeyPressed('keyz')) {
+      this.activateSpecialWeapon();
+    }
+
     // Weapon switching - Tab key
     if (this.inputManager.isKeyPressed('tab')) {
       this.weapon.cycleWeapon();
@@ -266,6 +277,17 @@ export class Player extends Entity {
     }
     if (this.inputManager.isKeyPressed('digit3')) {
       this.weapon.switchWeapon(WeaponType.SPECIAL);
+    }
+
+    // Individual special effect activation keys
+    if (this.inputManager.isKeyPressed('keyq')) {
+      this.activateSpecificEffect(SpecialEffectType.SHIELD);
+    }
+    if (this.inputManager.isKeyPressed('keye')) {
+      this.activateSpecificEffect(SpecialEffectType.TRACTOR_BEAM);
+    }
+    if (this.inputManager.isKeyPressed('keyr')) {
+      this.activateSpecificEffect(SpecialEffectType.SCREEN_CLEAR);
     }
   }
 
@@ -311,6 +333,16 @@ export class Player extends Entity {
     const spawnX = this.transform.position.x + this.shipWidth / 2;
     const spawnY = this.transform.position.y;
 
+    // For special weapons, determine which special type to create
+    let specialType: SpecialWeaponType | undefined;
+    if (weaponType === WeaponType.SPECIAL) {
+      // Cycle through special weapon types based on weapon level or player choice
+      const level = config.currentLevel;
+      if (level === 1) specialType = SpecialWeaponType.SHIELD;
+      else if (level === 2) specialType = SpecialWeaponType.TRACTOR_BEAM;
+      else specialType = SpecialWeaponType.SCREEN_CLEAR;
+    }
+
     // Create projectile using the factory function
     const projectile = createProjectile(
       weaponType,
@@ -320,12 +352,164 @@ export class Player extends Entity {
       0, // Velocity Y
       this.canvasWidth,
       this.canvasHeight,
-      upgradeEffects
+      upgradeEffects,
+      specialType
     );
 
     // Call the callback to add projectile to the game
     if (this.projectileCreationCallback) {
       this.projectileCreationCallback(projectile);
+    }
+  }
+
+  /**
+   * Activate special weapon effect (Z key)
+   */
+  private activateSpecialWeapon(): void {
+    // Determine which special effect to activate based on weapon level
+    const config = this.weapon.getWeaponConfig(WeaponType.SPECIAL);
+    if (!config) return;
+
+    let effectType: SpecialEffectType;
+    if (config.currentLevel === 1) {
+      effectType = SpecialEffectType.SHIELD;
+    } else if (config.currentLevel === 2) {
+      effectType = SpecialEffectType.TRACTOR_BEAM;
+    } else {
+      effectType = SpecialEffectType.SCREEN_CLEAR;
+    }
+
+    this.activateSpecificEffect(effectType);
+  }
+
+  /**
+   * Activate a specific special effect
+   */
+  private activateSpecificEffect(effectType: SpecialEffectType): void {
+    if (this.specialEffects.activateEffect(effectType)) {
+      // Apply immediate effects based on type
+      switch (effectType) {
+        case SpecialEffectType.SHIELD:
+          this.applyShieldEffect();
+          break;
+        case SpecialEffectType.TRACTOR_BEAM:
+          this.applyTractorBeamEffect();
+          break;
+        case SpecialEffectType.SCREEN_CLEAR:
+          this.applyScreenClearEffect();
+          break;
+      }
+    }
+  }
+
+  /**
+   * Apply shield effect - temporary invincibility
+   */
+  private applyShieldEffect(): void {
+    const activeEffect = this.specialEffects.getActiveEffect(SpecialEffectType.SHIELD);
+    if (!activeEffect) return;
+
+    // Update collider to ignore damage during shield
+    this.collider.setCollisionCallback((event) => {
+      if (this.specialEffects.isEffectActive(SpecialEffectType.SHIELD)) {
+        const effectData = activeEffect.data;
+        
+        // Complete invulnerability or damage reduction
+        if (effectData.invulnerable) {
+          console.log(`Shield blocked collision with entity ${event.otherEntityId}`);
+          return; // No damage taken
+        } else if (effectData.damageReduction > 0) {
+          console.log(`Shield reduced damage from entity ${event.otherEntityId} by ${effectData.damageReduction * 100}%`);
+          // In a full implementation, this would reduce damage
+        }
+
+        // Reflect damage at higher levels
+        if (effectData.reflectDamage) {
+          console.log(`Shield reflected damage back to entity ${event.otherEntityId}`);
+          // In a full implementation, this would damage the attacker
+        }
+      } else {
+        // Normal collision handling when shield is not active
+        console.log(`Player collided with entity ${event.otherEntityId}`);
+      }
+    });
+
+    console.log(`Shield activated for ${activeEffect.duration}ms at level ${activeEffect.level}`);
+  }
+
+  /**
+   * Apply tractor beam effect - attract power-ups and optionally enemies
+   */
+  private applyTractorBeamEffect(): void {
+    const activeEffect = this.specialEffects.getActiveEffect(SpecialEffectType.TRACTOR_BEAM);
+    if (!activeEffect) return;
+
+    const effectData = activeEffect.data;
+    console.log(`Tractor beam activated with range ${effectData.range} and strength ${effectData.strength}`);
+    
+    // In a full implementation, this would:
+    // 1. Find all power-ups within range
+    // 2. Apply attractive force toward player
+    // 3. At level 3+, also affect enemies
+    
+    // For now, we'll create a visual projectile to represent the beam
+    if (this.projectileCreationCallback) {
+      const spawnX = this.transform.position.x + this.shipWidth / 2;
+      const spawnY = this.transform.position.y;
+      
+      const config = this.weapon.getCurrentWeaponConfig();
+      const upgradeEffects = this.weapon.getUpgradeEffects(WeaponType.SPECIAL, config.currentLevel);
+      
+      const tractorProjectile = createProjectile(
+        WeaponType.SPECIAL,
+        spawnX,
+        spawnY,
+        1, 0,
+        this.canvasWidth,
+        this.canvasHeight,
+        upgradeEffects,
+        SpecialWeaponType.TRACTOR_BEAM
+      );
+      
+      this.projectileCreationCallback(tractorProjectile);
+    }
+  }
+
+  /**
+   * Apply screen clear effect - destroy all enemies and obstacles
+   */
+  private applyScreenClearEffect(): void {
+    const activeEffect = this.specialEffects.getActiveEffect(SpecialEffectType.SCREEN_CLEAR);
+    if (!activeEffect) return;
+
+    const effectData = activeEffect.data;
+    console.log(`Screen clear activated with damage ${effectData.damage} and range ${effectData.range}`);
+    
+    // In a full implementation, this would:
+    // 1. Find all enemies and destructible obstacles on screen
+    // 2. Apply massive damage to destroy them
+    // 3. Award bonus score at level 3+
+    
+    // For now, we'll create a special projectile to handle the effect
+    if (this.projectileCreationCallback) {
+      const spawnX = this.canvasWidth / 2; // Center of screen
+      const spawnY = this.canvasHeight / 2;
+      
+      const config = this.weapon.getCurrentWeaponConfig();
+      const upgradeEffects = this.weapon.getUpgradeEffects(WeaponType.SPECIAL, config.currentLevel);
+      
+      const clearProjectile = createProjectile(
+        WeaponType.SPECIAL,
+        spawnX,
+        spawnY,
+        0, 0, // Stationary
+        this.canvasWidth,
+        this.canvasHeight,
+        upgradeEffects,
+        SpecialWeaponType.SCREEN_CLEAR
+      );
+      
+      this.projectileCreationCallback(clearProjectile);
     }
   }
 
@@ -405,5 +589,61 @@ export class Player extends Entity {
    */
   getTimeSinceLastShot(): number {
     return this.weapon.getTimeSinceLastShot();
+  }
+
+  /**
+   * Get the special effects component
+   */
+  getSpecialEffects(): SpecialEffects {
+    return this.specialEffects;
+  }
+
+  /**
+   * Check if a special effect is currently active
+   */
+  isSpecialEffectActive(effectType: SpecialEffectType): boolean {
+    return this.specialEffects.isEffectActive(effectType);
+  }
+
+  /**
+   * Get remaining duration for a special effect
+   */
+  getSpecialEffectRemainingDuration(effectType: SpecialEffectType): number {
+    return this.specialEffects.getRemainingDuration(effectType);
+  }
+
+  /**
+   * Get remaining cooldown for a special effect
+   */
+  getSpecialEffectRemainingCooldown(effectType: SpecialEffectType): number {
+    return this.specialEffects.getRemainingCooldown(effectType);
+  }
+
+  /**
+   * Get remaining uses for a special effect
+   */
+  getSpecialEffectRemainingUses(effectType: SpecialEffectType): number | undefined {
+    return this.specialEffects.getRemainingUses(effectType);
+  }
+
+  /**
+   * Upgrade a special effect
+   */
+  upgradeSpecialEffect(effectType: SpecialEffectType): boolean {
+    return this.specialEffects.upgradeEffect(effectType);
+  }
+
+  /**
+   * Add uses to a special effect
+   */
+  addSpecialEffectUses(effectType: SpecialEffectType, amount: number): boolean {
+    return this.specialEffects.addUses(effectType, amount);
+  }
+
+  /**
+   * Check if player is currently invulnerable (shield effect)
+   */
+  isInvulnerable(): boolean {
+    return this.specialEffects.isEffectActive(SpecialEffectType.SHIELD);
   }
 }

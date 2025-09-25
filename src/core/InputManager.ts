@@ -168,7 +168,7 @@ export class InputManager {
     const gameKeys = [
       'arrowup', 'arrowdown', 'arrowleft', 'arrowright',
       'keyw', 'keya', 'keys', 'keyd',
-      'space', 'enter', 'escape'
+      'space', 'keyz', 'keyx', 'tab', 'enter', 'escape'
     ];
     return gameKeys.includes(key);
   }

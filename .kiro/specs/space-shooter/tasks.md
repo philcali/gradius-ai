@@ -96,7 +96,7 @@
   - Write unit tests for missile ammunition management
   - _Requirements: 2.3, 2.4, 8.7_
 
-- [ ] 13. Implement special weapon system
+- [x] 13. Implement special weapon system
   - Create special weapon effects (shield, tractor beam, screen clear)
   - Add special weapon activation and duration tracking
   - Implement shield effect with temporary invincibility

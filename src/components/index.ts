@@ -11,3 +11,5 @@ export { Health } from './Health';
 export type { HealthConfig, DamageEvent, DeathCallback, DamageCallback } from './Health';
 export { Weapon, WeaponType } from './Weapon';
 export type { WeaponConfig, WeaponUpgradeEffects } from './Weapon';
+export { SpecialEffects, SpecialEffectType } from './SpecialEffects';
+export type { SpecialEffectConfig, ActiveEffect } from './SpecialEffects';
