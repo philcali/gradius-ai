@@ -31,7 +31,8 @@ export const ComponentTypes = {
   WEAPON: 'weapon',
   VELOCITY: 'velocity',
   INPUT: 'input',
-  BACKGROUND: 'background'
+  BACKGROUND: 'background',
+  SPECIAL_EFFECTS: 'special_effects'
 } as const;
 
 export type ComponentType = typeof ComponentTypes[keyof typeof ComponentTypes];

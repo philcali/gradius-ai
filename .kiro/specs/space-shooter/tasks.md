@@ -105,7 +105,7 @@
   - Write unit tests for special weapon effects and timing
   - _Requirements: 2.5, 2.6_
 
-- [ ] 14. Create weapon upgrade system
+- [x] 14. Create weapon upgrade system
   - Implement weapon upgrade levels for each weapon type
   - Create upgrade effects for damage, fire rate, and special properties
   - Add upgrade level tracking and persistence

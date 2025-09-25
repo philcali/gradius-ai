@@ -7,6 +7,8 @@ export { Obstacle } from './Obstacle';
 export type { ObstacleConfig } from './Obstacle';
 export { Enemy, EnemyMovementPattern } from './Enemy';
 export type { EnemyConfig } from './Enemy';
+export { PowerUp, PowerUpType } from './PowerUp';
+export type { PowerUpConfig } from './PowerUp';
 export {
   BaseProjectile,
   BeamProjectile,

@@ -71,7 +71,8 @@ describe('Component', () => {
         WEAPON: 'weapon',
         VELOCITY: 'velocity',
         INPUT: 'input',
-        BACKGROUND: 'background'
+        BACKGROUND: 'background',
+        SPECIAL_EFFECTS: 'special_effects'
       };
       
       expect(ComponentTypes).toEqual(expectedTypes);
