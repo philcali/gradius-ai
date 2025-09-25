@@ -11,6 +11,7 @@ import { Weapon, WeaponType } from '../components/Weapon';
 import { SpecialEffects, SpecialEffectType } from '../components/SpecialEffects';
 import { InputManager } from '../core/InputManager';
 import { createProjectile, BaseProjectile, SpecialWeaponType } from './ProjectileTypes';
+import { PowerUp, PowerUpType } from './PowerUp';
 
 export class Player extends Entity {
   private transform: Transform;
@@ -31,6 +32,12 @@ export class Player extends Entity {
 
   // Projectile creation callback
   private projectileCreationCallback?: (projectile: BaseProjectile) => void;
+
+  // Power-up collection callback
+  private powerUpCollectionCallback?: (powerUp: PowerUp, player: Player) => void;
+
+  // Score tracking for power-up collection
+  private score: number = 0;
 
   constructor(
     x: number,
@@ -75,8 +82,7 @@ export class Player extends Entity {
 
     // Set up collision callback
     this.collider.setCollisionCallback((event) => {
-      console.log(`Player collided with entity ${event.otherEntityId}`);
-      // In a real game, this would handle damage, game over, etc.
+      this.handleCollision(event);
     });
 
     this.addComponent(this.collider);
@@ -645,5 +651,131 @@ export class Player extends Entity {
    */
   isInvulnerable(): boolean {
     return this.specialEffects.isEffectActive(SpecialEffectType.SHIELD);
+  }
+
+  /**
+   * Handle collision events
+   */
+  private handleCollision(event: any): void {
+    // Check if collision is with a power-up
+    if (event.otherCollider.layer === CollisionLayers.POWERUP) {
+      // Power-up collection will be handled by the power-up's collision callback
+      // This is just for logging/debugging
+      console.log(`Player is collecting power-up from entity ${event.otherEntityId}`);
+      return;
+    }
+
+    // Handle other collision types (enemies, obstacles, etc.)
+    if (this.isInvulnerable()) {
+      console.log(`Shield blocked collision with entity ${event.otherEntityId}`);
+      return;
+    }
+
+    console.log(`Player collided with entity ${event.otherEntityId}`);
+    // In a real game, this would handle damage, game over, etc.
+  }
+
+  /**
+   * Collect a power-up and apply its effects
+   */
+  collectPowerUp(powerUp: PowerUp): boolean {
+    const powerUpType = powerUp.getType();
+    const value = powerUp.getValue();
+    const scoreBonus = powerUp.getScoreBonus();
+
+    // Add score bonus
+    this.score += scoreBonus;
+
+    // Apply power-up effects based on type
+    let collected = false;
+
+    if (powerUp.isWeaponUpgrade()) {
+      const weaponType = powerUp.getWeaponType();
+      if (weaponType) {
+        for (let i = 0; i < value; i++) {
+          if (this.upgradeWeapon(weaponType)) {
+            collected = true;
+          }
+        }
+        console.log(`Collected weapon upgrade for ${weaponType} (${value} levels)`);
+      }
+    } else if (powerUp.isAmmunition()) {
+      if (powerUpType === PowerUpType.AMMUNITION_MISSILE) {
+        if (this.addAmmo(WeaponType.MISSILE, value)) {
+          collected = true;
+        }
+        console.log(`Collected ${value} missile ammunition`);
+      } else if (powerUpType === PowerUpType.AMMUNITION_SPECIAL) {
+        if (this.addAmmo(WeaponType.SPECIAL, value)) {
+          collected = true;
+        }
+        console.log(`Collected ${value} special ammunition`);
+      }
+    } else if (powerUp.isSpecialEffect()) {
+      const effectType = powerUp.getSpecialEffectType();
+      if (effectType) {
+        // For special effects, we can either upgrade the effect or add uses
+        if (this.upgradeSpecialEffect(effectType) || this.addSpecialEffectUses(effectType, value)) {
+          collected = true;
+        }
+        console.log(`Collected special effect: ${effectType}`);
+      }
+    } else if (powerUpType === PowerUpType.SCORE_MULTIPLIER) {
+      // Score multiplier is handled differently - it affects future scoring
+      // For now, just give the bonus points
+      collected = true;
+      console.log(`Collected score multiplier: ${value}x for ${powerUp.getDuration()}ms`);
+    }
+
+    // Call collection callback for visual feedback and game state updates
+    if (this.powerUpCollectionCallback) {
+      this.powerUpCollectionCallback(powerUp, this);
+    }
+
+    // Create visual feedback effect
+    this.createCollectionEffect(powerUp);
+
+    return collected;
+  }
+
+  /**
+   * Create visual feedback effect for power-up collection
+   */
+  private createCollectionEffect(powerUp: PowerUp): void {
+    // In a full implementation, this would create particle effects, sound, etc.
+    // For now, we'll just log the collection
+    const position = powerUp.getPosition();
+    console.log(`Power-up collected at position (${position.x}, ${position.y}) - Score: +${powerUp.getScoreBonus()}`);
+    
+    // TODO: Add particle effect system for visual feedback
+    // TODO: Add sound effect for collection
+  }
+
+  /**
+   * Set the callback function for power-up collection
+   */
+  setPowerUpCollectionCallback(callback: (powerUp: PowerUp, player: Player) => void): void {
+    this.powerUpCollectionCallback = callback;
+  }
+
+  /**
+   * Get current score
+   */
+  getScore(): number {
+    return this.score;
+  }
+
+  /**
+   * Add to score
+   */
+  addScore(points: number): void {
+    this.score += points;
+  }
+
+  /**
+   * Reset score
+   */
+  resetScore(): void {
+    this.score = 0;
   }
 }

@@ -5,8 +5,8 @@
 import { Entity, Component, GameState } from './core/interfaces';
 import { GameEngine, InputManager } from './core/index';
 import { Transform, Sprite, Background } from './components/index';
-import { RenderSystem, ProjectileSystem, CollisionSystem, BackgroundSystem, ObstacleSpawner, UISystem } from './systems/index';
-import { Player, Obstacle, Enemy } from './entities/index';
+import { RenderSystem, ProjectileSystem, CollisionSystem, BackgroundSystem, ObstacleSpawner, PowerUpSpawner, UISystem } from './systems/index';
+import { Player, Obstacle, Enemy, PowerUp } from './entities/index';
 import { BaseProjectile } from './entities/ProjectileTypes';
 
 /**
@@ -64,6 +64,7 @@ class Game {
   private projectileSystem!: ProjectileSystem;
   private collisionSystem!: CollisionSystem;
   private obstacleSpawner!: ObstacleSpawner;
+  private powerUpSpawner!: PowerUpSpawner;
 
   constructor() {
     // Initialize the game engine with the canvas
@@ -144,6 +145,29 @@ class Game {
 
     this.gameEngine.addSystem(this.obstacleSpawner);
 
+    // Create and add the power-up spawner system
+    this.powerUpSpawner = new PowerUpSpawner(canvasSize.width, canvasSize.height, {
+      spawnInterval: 6000, // 6 seconds base interval
+      spawnVariance: 3000, // ±3 seconds variance
+      weaponUpgradeChance: 0.4, // 40% chance
+      ammunitionChance: 0.3, // 30% chance
+      specialEffectChance: 0.2, // 20% chance
+      scoreMultiplierChance: 0.1, // 10% chance
+      maxPowerUpsOnScreen: 2 // Limit to 2 power-ups on screen
+    });
+
+    // Set up power-up spawner callbacks
+    this.powerUpSpawner.setPowerUpCreationCallback((powerUp: PowerUp) => {
+      // Set up power-up collection callback
+      powerUp.setCollectionCallback((collectedPowerUp: PowerUp) => {
+        this.player.collectPowerUp(collectedPowerUp);
+      });
+      
+      this.gameEngine.addEntity(powerUp);
+    });
+
+    this.gameEngine.addSystem(this.powerUpSpawner);
+
     // Create and add the UI system (should render last, on top of everything)
     const uiSystem = new UISystem(ctx, canvasSize.width, canvasSize.height, {
       showAmmo: true,
@@ -157,6 +181,18 @@ class Game {
     // Set up player projectile creation callback
     this.player.setProjectileCreationCallback((projectile: BaseProjectile) => {
       this.gameEngine.addEntity(projectile);
+    });
+
+    // Set up player power-up collection callback
+    this.player.setPowerUpCollectionCallback((powerUp: PowerUp, player: Player) => {
+      // Update game state with collected power-up
+      this.gameState.score = player.getScore();
+      
+      // Log collection for debugging
+      console.log(`Power-up collected! Type: ${powerUp.getType()}, Score: ${this.gameState.score}`);
+      
+      // TODO: Add visual/audio feedback here
+      // TODO: Update UI to show collection feedback
     });
 
     // Add player to the game engine

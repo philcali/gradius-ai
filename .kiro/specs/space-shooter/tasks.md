@@ -114,7 +114,7 @@
   - Write unit tests for upgrade calculations and effects
   - _Requirements: 2.7, 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 15. Add power-up system
+- [x] 15. Add power-up system
   - Create PowerUp entity with different types (weapon upgrades, ammo, special)
   - Implement power-up spawning at random intervals
   - Add power-up collection on player collision
