@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { Obstacle, ObstacleConfig } from './Obstacle';
-import { Projectile } from './Projectile';
+import { BeamProjectile } from './ProjectileTypes';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { Health } from '../components/Health';
 import { ComponentTypes } from '../core/Component';
@@ -28,7 +28,7 @@ describe('Projectile-Obstacle Collision System', () => {
       const obstacle = new Obstacle(400, 300, canvasWidth, canvasHeight, obstacleConfig);
       
       // Create a projectile overlapping with the obstacle (same position)
-      const projectile = new Projectile(400, 300, 1, 0, canvasWidth, canvasHeight);
+      const projectile = new BeamProjectile(400, 300, 1, 0, canvasWidth, canvasHeight);
       
       const entities = [obstacle, projectile];
       
@@ -55,7 +55,7 @@ describe('Projectile-Obstacle Collision System', () => {
       const obstacle = new Obstacle(400, 300, canvasWidth, canvasHeight, obstacleConfig);
       
       // Create a projectile overlapping with the obstacle
-      const projectile = new Projectile(400, 300, 1, 0, canvasWidth, canvasHeight);
+      const projectile = new BeamProjectile(400, 300, 1, 0, canvasWidth, canvasHeight);
       
       const entities = [obstacle, projectile];
       
@@ -79,7 +79,7 @@ describe('Projectile-Obstacle Collision System', () => {
         health: 2
       };
       const obstacle = new Obstacle(400, 300, canvasWidth, canvasHeight, obstacleConfig);
-      const projectile = new Projectile(400, 300, 1, 0, canvasWidth, canvasHeight);
+      const projectile = new BeamProjectile(400, 300, 1, 0, canvasWidth, canvasHeight);
       
       const entities = [obstacle, projectile];
       
@@ -103,7 +103,7 @@ describe('Projectile-Obstacle Collision System', () => {
       const obstacle = new Obstacle(400, 300, canvasWidth, canvasHeight, obstacleConfig);
       
       // First collision
-      const projectile1 = new Projectile(400, 300, 1, 0, canvasWidth, canvasHeight);
+      const projectile1 = new BeamProjectile(400, 300, 1, 0, canvasWidth, canvasHeight);
       let entities = [obstacle, projectile1];
       collisionSystem.update(entities, 16);
       
@@ -115,7 +115,7 @@ describe('Projectile-Obstacle Collision System', () => {
       healthComponent?.update(200); // 0.2 seconds (invulnerability is 0.1s)
       
       // Second collision (need to create new projectile since first was destroyed)
-      const projectile3 = new Projectile(400, 300, 1, 0, canvasWidth, canvasHeight);
+      const projectile3 = new BeamProjectile(400, 300, 1, 0, canvasWidth, canvasHeight);
       entities = [obstacle, projectile3];
       collisionSystem.update(entities, 16);
       
@@ -148,7 +148,7 @@ describe('Projectile-Obstacle Collision System', () => {
         destructible: false
       };
       const obstacle = new Obstacle(400, 300, canvasWidth, canvasHeight, obstacleConfig);
-      const projectile = new Projectile(350, 300, 1, 0, canvasWidth, canvasHeight);
+      const projectile = new BeamProjectile(350, 300, 1, 0, canvasWidth, canvasHeight);
       
       const entities = [obstacle, projectile];
       
@@ -171,7 +171,7 @@ describe('Projectile-Obstacle Collision System', () => {
         destructible: false
       };
       const obstacle = new Obstacle(400, 300, canvasWidth, canvasHeight, obstacleConfig);
-      const projectile = new Projectile(400, 300, 1, 0, canvasWidth, canvasHeight);
+      const projectile = new BeamProjectile(400, 300, 1, 0, canvasWidth, canvasHeight);
       
       const entities = [obstacle, projectile];
       
@@ -208,7 +208,7 @@ describe('Projectile-Obstacle Collision System', () => {
         health: 1
       };
       const obstacle = new Obstacle(400, 300, canvasWidth, canvasHeight, obstacleConfig);
-      const projectile = new Projectile(100, 100, 1, 0, canvasWidth, canvasHeight); // Far away
+      const projectile = new BeamProjectile(100, 100, 1, 0, canvasWidth, canvasHeight); // Far away
       
       const entities = [obstacle, projectile];
       
@@ -230,7 +230,7 @@ describe('Projectile-Obstacle Collision System', () => {
       };
       // Position obstacle and projectile to overlap
       const obstacle = new Obstacle(400, 300, canvasWidth, canvasHeight, obstacleConfig);
-      const projectile = new Projectile(405, 305, 1, 0, canvasWidth, canvasHeight); // Overlapping
+      const projectile = new BeamProjectile(405, 305, 1, 0, canvasWidth, canvasHeight); // Overlapping
       
       const entities = [obstacle, projectile];
       
@@ -333,7 +333,7 @@ describe('Projectile-Obstacle Collision System', () => {
       obstacle.destroy();
       expect(obstacle.active).toBe(false);
       
-      const projectile = new Projectile(350, 300, 1, 0, canvasWidth, canvasHeight);
+      const projectile = new BeamProjectile(350, 300, 1, 0, canvasWidth, canvasHeight);
       const entities = [obstacle, projectile];
       
       // Collision system should handle inactive entities gracefully

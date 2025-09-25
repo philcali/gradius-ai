@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ProjectileSystem } from './ProjectileSystem';
-import { Projectile } from '../entities/Projectile';
+import { BeamProjectile } from '../entities/ProjectileTypes';
 import { Entity } from '../core/Entity';
 import { Transform } from '../components/Transform';
 import { Sprite } from '../components/Sprite';
@@ -12,8 +12,8 @@ import { afterEach } from 'node:test';
 
 describe('ProjectileSystem', () => {
   let projectileSystem: ProjectileSystem;
-  let projectile1: Projectile;
-  let projectile2: Projectile;
+  let projectile1: BeamProjectile;
+  let projectile2: BeamProjectile;
   let nonProjectileEntity: Entity;
   const canvasWidth = 800;
   const canvasHeight = 600;
@@ -24,8 +24,8 @@ describe('ProjectileSystem', () => {
 
     projectileSystem = new ProjectileSystem(canvasWidth, canvasHeight);
     
-    projectile1 = new Projectile(100, 200, 1, 0, canvasWidth, canvasHeight);
-    projectile2 = new Projectile(200, 300, 1, 0, canvasWidth, canvasHeight);
+    projectile1 = new BeamProjectile(100, 200, 1, 0, canvasWidth, canvasHeight);
+    projectile2 = new BeamProjectile(200, 300, 1, 0, canvasWidth, canvasHeight);
     
     // Create a non-projectile entity for filtering tests
     nonProjectileEntity = new Entity('test-entity');
@@ -91,7 +91,7 @@ describe('ProjectileSystem', () => {
     });
 
     it('should mark out-of-bounds projectiles for removal', () => {
-      const outOfBoundsProjectile = new Projectile(
+      const outOfBoundsProjectile = new BeamProjectile(
         canvasWidth + 100, 200, 1, 0, canvasWidth, canvasHeight
       );
       const entities = [outOfBoundsProjectile];
@@ -103,17 +103,18 @@ describe('ProjectileSystem', () => {
     });
 
     it('should clear removal set between updates', () => {
-      const expiredProjectile = new Projectile(
-        100, 200, 1, 0, canvasWidth, canvasHeight, 600, 1, 0.001 // Very short lifetime
+      // Create a projectile that will expire quickly by updating it with a large deltaTime
+      const expiredProjectile = new BeamProjectile(
+        100, 200, 1, 0, canvasWidth, canvasHeight
       );
       const entities = [expiredProjectile];
       
-      // First update - projectile should be marked for removal
-      projectileSystem.update(entities, 10);
+      // First update with large deltaTime to expire the projectile
+      projectileSystem.update(entities, 3100); // 3.1 seconds to exceed lifetime
       expect(projectileSystem.getProjectilesToRemove().size).toBe(1);
       
       // Second update with different entities - removal set should be cleared
-      const newProjectile = new Projectile(200, 300, 1, 0, canvasWidth, canvasHeight);
+      const newProjectile = new BeamProjectile(200, 300, 1, 0, canvasWidth, canvasHeight);
       projectileSystem.update([newProjectile], 16.67);
       expect(projectileSystem.getProjectilesToRemove().size).toBe(0);
     });
@@ -143,8 +144,8 @@ describe('ProjectileSystem', () => {
   describe('getProjectilesInArea', () => {
     it('should return projectiles within specified area', () => {
       // Create projectiles at known positions
-      const projectileInArea = new Projectile(150, 150, 1, 0, canvasWidth, canvasHeight);
-      const projectileOutsideArea = new Projectile(500, 500, 1, 0, canvasWidth, canvasHeight);
+      const projectileInArea = new BeamProjectile(150, 150, 1, 0, canvasWidth, canvasHeight);
+      const projectileOutsideArea = new BeamProjectile(500, 500, 1, 0, canvasWidth, canvasHeight);
       const entities = [projectileInArea, projectileOutsideArea];
       
       // Check area around first projectile
@@ -169,7 +170,7 @@ describe('ProjectileSystem', () => {
 
     it('should handle edge cases with projectile boundaries', () => {
       // Create projectile at edge of area
-      const edgeProjectile = new Projectile(100, 100, 1, 0, canvasWidth, canvasHeight);
+      const edgeProjectile = new BeamProjectile(100, 100, 1, 0, canvasWidth, canvasHeight);
       const entities = [edgeProjectile];
       
       // Area that just touches the projectile

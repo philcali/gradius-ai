@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { Player } from './Player.js';
-import { Projectile } from './Projectile.js';
+import { BaseProjectile } from './ProjectileTypes.js';
 import { InputManager } from '../core/InputManager.js';
 import { ComponentTypes } from '../core/Component.js';
 
@@ -273,11 +273,11 @@ describe('Player Entity', () => {
   });
 
   describe('Weapon System', () => {
-    let createdProjectiles: Projectile[] = [];
+    let createdProjectiles: BaseProjectile[] = [];
 
     beforeEach(() => {
       createdProjectiles = [];
-      player.setProjectileCreationCallback((projectile: Projectile) => {
+      player.setProjectileCreationCallback((projectile: BaseProjectile) => {
         createdProjectiles.push(projectile);
       });
     });
@@ -291,7 +291,7 @@ describe('Player Entity', () => {
       expect(createdProjectiles).toHaveLength(1);
       
       const projectile = createdProjectiles[0];
-      expect(projectile).toBeInstanceOf(Projectile);
+      expect(projectile).toBeInstanceOf(BaseProjectile);
       
       // Projectile should spawn at front of ship
       const playerPos = player.getPosition();

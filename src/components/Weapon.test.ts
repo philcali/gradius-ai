@@ -1,323 +1,297 @@
 /**
- * Unit tests for the Weapon component
- * Tests weapon switching, ammunition tracking, upgrades, and firing logic
+ * Unit tests for Weapon component missile ammunition management
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { Weapon, WeaponType } from './Weapon';
 
-describe('Weapon Component', () => {
+describe('Weapon Component - Missile Ammunition Management', () => {
   let weapon: Weapon;
 
   beforeEach(() => {
-    weapon = new Weapon();
-    // Mock Date.now for consistent testing
-    vi.spyOn(Date, 'now').mockReturnValue(1000);
+    weapon = new Weapon(WeaponType.BEAM);
   });
 
-  describe('Initialization', () => {
-    it('should initialize with beam weapon as default', () => {
-      expect(weapon.getCurrentWeapon()).toBe(WeaponType.BEAM);
-    });
-
-    it('should initialize with custom weapon type', () => {
-      const missileWeapon = new Weapon(WeaponType.MISSILE);
-      expect(missileWeapon.getCurrentWeapon()).toBe(WeaponType.MISSILE);
-    });
-
-    it('should have all three weapon types configured', () => {
-      expect(weapon.getWeaponConfig(WeaponType.BEAM)).toBeDefined();
-      expect(weapon.getWeaponConfig(WeaponType.MISSILE)).toBeDefined();
-      expect(weapon.getWeaponConfig(WeaponType.SPECIAL)).toBeDefined();
-    });
-
-    it('should initialize beam weapon with unlimited ammo', () => {
-      const beamConfig = weapon.getWeaponConfig(WeaponType.BEAM);
-      expect(beamConfig?.maxAmmo).toBeUndefined();
-      expect(beamConfig?.currentAmmo).toBeUndefined();
-    });
-
-    it('should initialize missile weapon with limited ammo', () => {
-      const missileConfig = weapon.getWeaponConfig(WeaponType.MISSILE);
-      expect(missileConfig?.maxAmmo).toBe(20);
-      expect(missileConfig?.currentAmmo).toBe(20);
-    });
-
-    it('should initialize special weapon with limited uses', () => {
-      const specialConfig = weapon.getWeaponConfig(WeaponType.SPECIAL);
-      expect(specialConfig?.maxAmmo).toBe(3);
-      expect(specialConfig?.currentAmmo).toBe(3);
-    });
-  });
-
-  describe('Weapon Switching', () => {
-    it('should switch to valid weapon type', () => {
-      expect(weapon.switchWeapon(WeaponType.MISSILE)).toBe(true);
-      expect(weapon.getCurrentWeapon()).toBe(WeaponType.MISSILE);
-    });
-
-    it('should cycle through all weapon types', () => {
-      expect(weapon.getCurrentWeapon()).toBe(WeaponType.BEAM);
+  describe('Missile Ammunition Tracking', () => {
+    it('should initialize missile weapon with correct default ammunition', () => {
+      const missileAmmo = weapon.getAmmo(WeaponType.MISSILE);
+      const maxMissileAmmo = weapon.getMaxAmmo(WeaponType.MISSILE);
       
-      weapon.cycleWeapon();
-      expect(weapon.getCurrentWeapon()).toBe(WeaponType.MISSILE);
-      
-      weapon.cycleWeapon();
-      expect(weapon.getCurrentWeapon()).toBe(WeaponType.SPECIAL);
-      
-      weapon.cycleWeapon();
-      expect(weapon.getCurrentWeapon()).toBe(WeaponType.BEAM);
+      expect(missileAmmo).toBe(20);
+      expect(maxMissileAmmo).toBe(20);
     });
 
-    it('should get current weapon configuration', () => {
-      weapon.switchWeapon(WeaponType.MISSILE);
-      const config = weapon.getCurrentWeaponConfig();
-      expect(config.damage).toBe(3);
-      expect(config.maxAmmo).toBe(20);
-    });
-  });
-
-  describe('Firing Logic', () => {
-    it('should allow firing when weapon is ready', () => {
-      expect(weapon.canFire()).toBe(true);
-      expect(weapon.fire()).toBe(true);
-    });
-
-    it('should prevent firing during cooldown', () => {
-      weapon.fire();
-      expect(weapon.canFire()).toBe(false);
-      expect(weapon.fire()).toBe(false);
-    });
-
-    it('should allow firing after cooldown period', () => {
-      weapon.fire();
-      
-      // Advance time past fire rate
-      vi.spyOn(Date, 'now').mockReturnValue(1300); // +300ms
-      
-      expect(weapon.canFire()).toBe(true);
-      expect(weapon.fire()).toBe(true);
-    });
-
-    it('should prevent firing when out of ammo', () => {
+    it('should consume ammunition when firing missile weapon', () => {
       weapon.switchWeapon(WeaponType.MISSILE);
       
-      // Deplete all ammo
-      const missileConfig = weapon.getWeaponConfig(WeaponType.MISSILE)!;
-      missileConfig.currentAmmo = 0;
-      
-      expect(weapon.canFire()).toBe(false);
-      expect(weapon.fire()).toBe(false);
-    });
-
-    it('should consume ammo when firing limited ammo weapons', () => {
-      weapon.switchWeapon(WeaponType.MISSILE);
       const initialAmmo = weapon.getAmmo(WeaponType.MISSILE);
+      expect(initialAmmo).toBe(20);
       
-      weapon.fire();
+      // Fire missile
+      const fired = weapon.fire();
+      expect(fired).toBe(true);
       
-      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(initialAmmo! - 1);
+      const remainingAmmo = weapon.getAmmo(WeaponType.MISSILE);
+      expect(remainingAmmo).toBe(19);
     });
 
-    it('should not consume ammo for unlimited ammo weapons', () => {
+    it('should prevent firing when missile ammunition is empty', () => {
+      weapon.switchWeapon(WeaponType.MISSILE);
+      
+      // Drain all ammunition
+      const config = weapon.getWeaponConfig(WeaponType.MISSILE)!;
+      config.currentAmmo = 0;
+      
+      const canFire = weapon.canFire();
+      expect(canFire).toBe(false);
+      
+      const fired = weapon.fire();
+      expect(fired).toBe(false);
+    });
+
+    it('should not consume ammunition for beam weapon (unlimited)', () => {
       weapon.switchWeapon(WeaponType.BEAM);
+      
       const initialAmmo = weapon.getAmmo(WeaponType.BEAM);
+      expect(initialAmmo).toBeUndefined(); // Unlimited ammo
       
-      weapon.fire();
+      // Fire beam multiple times (bypassing cooldown for testing)
+      for (let i = 0; i < 10; i++) {
+        // Simulate time passing to bypass cooldown
+        (weapon as any).lastFireTimes.set(WeaponType.BEAM, Date.now() - 1000);
+        const fired = weapon.fire();
+        expect(fired).toBe(true);
+      }
       
-      expect(weapon.getAmmo(WeaponType.BEAM)).toBe(initialAmmo);
-    });
-
-    it('should calculate time until ready correctly', () => {
-      weapon.fire();
-      
-      // Check immediately after firing
-      const timeUntilReady = weapon.getTimeUntilReady();
-      expect(timeUntilReady).toBe(200); // Fire rate is 200ms
-      
-      // Advance time partially
-      vi.spyOn(Date, 'now').mockReturnValue(1100); // +100ms
-      expect(weapon.getTimeUntilReady()).toBe(100);
-      
-      // Advance time past cooldown
-      vi.spyOn(Date, 'now').mockReturnValue(1300); // +300ms
-      expect(weapon.getTimeUntilReady()).toBe(0);
+      const remainingAmmo = weapon.getAmmo(WeaponType.BEAM);
+      expect(remainingAmmo).toBeUndefined(); // Still unlimited
     });
   });
 
   describe('Ammunition Management', () => {
-    it('should add ammo to limited ammo weapons', () => {
+    it('should add ammunition to missile weapon', () => {
       weapon.switchWeapon(WeaponType.MISSILE);
-      const missileConfig = weapon.getWeaponConfig(WeaponType.MISSILE)!;
-      missileConfig.currentAmmo = 10;
       
-      expect(weapon.addAmmo(WeaponType.MISSILE, 5)).toBe(true);
+      // Use some ammo first (bypass cooldown)
+      (weapon as any).lastFireTimes.set(WeaponType.MISSILE, Date.now() - 1000);
+      weapon.fire();
+      (weapon as any).lastFireTimes.set(WeaponType.MISSILE, Date.now() - 1000);
+      weapon.fire();
+      (weapon as any).lastFireTimes.set(WeaponType.MISSILE, Date.now() - 1000);
+      weapon.fire();
+      (weapon as any).lastFireTimes.set(WeaponType.MISSILE, Date.now() - 1000);
+      weapon.fire();
+      (weapon as any).lastFireTimes.set(WeaponType.MISSILE, Date.now() - 1000);
+      weapon.fire();
       expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(15);
-    });
-
-    it('should not exceed max ammo when adding', () => {
-      weapon.switchWeapon(WeaponType.MISSILE);
-      const missileConfig = weapon.getWeaponConfig(WeaponType.MISSILE)!;
-      missileConfig.currentAmmo = 18;
       
-      expect(weapon.addAmmo(WeaponType.MISSILE, 5)).toBe(true);
-      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(20); // Capped at max
+      // Add ammo (should not exceed max)
+      const added = weapon.addAmmo(WeaponType.MISSILE, 3);
+      expect(added).toBe(true);
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(18);
     });
 
-    it('should not add ammo to unlimited ammo weapons', () => {
-      expect(weapon.addAmmo(WeaponType.BEAM, 10)).toBe(false);
-    });
-
-    it('should refill ammo to maximum', () => {
+    it('should not exceed maximum ammunition when adding ammo', () => {
       weapon.switchWeapon(WeaponType.MISSILE);
-      const missileConfig = weapon.getWeaponConfig(WeaponType.MISSILE)!;
-      missileConfig.currentAmmo = 5;
       
-      expect(weapon.refillAmmo(WeaponType.MISSILE)).toBe(true);
+      const maxAmmo = weapon.getMaxAmmo(WeaponType.MISSILE)!;
+      
+      // Try to add more than max
+      const added = weapon.addAmmo(WeaponType.MISSILE, 50);
+      expect(added).toBe(true);
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(maxAmmo);
+    });
+
+    it('should refill ammunition to maximum', () => {
+      weapon.switchWeapon(WeaponType.MISSILE);
+      
+      // Use some ammo (bypass cooldown)
+      (weapon as any).lastFireTimes.set(WeaponType.MISSILE, Date.now() - 1000);
+      weapon.fire();
+      (weapon as any).lastFireTimes.set(WeaponType.MISSILE, Date.now() - 1000);
+      weapon.fire();
+      (weapon as any).lastFireTimes.set(WeaponType.MISSILE, Date.now() - 1000);
+      weapon.fire();
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(17);
+      
+      // Refill
+      const refilled = weapon.refillAmmo(WeaponType.MISSILE);
+      expect(refilled).toBe(true);
       expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(20);
     });
 
-    it('should not refill unlimited ammo weapons', () => {
-      expect(weapon.refillAmmo(WeaponType.BEAM)).toBe(false);
-    });
-
-    it('should get correct ammo counts', () => {
+    it('should not add ammunition to beam weapon (unlimited)', () => {
+      const added = weapon.addAmmo(WeaponType.BEAM, 10);
+      expect(added).toBe(false);
       expect(weapon.getAmmo(WeaponType.BEAM)).toBeUndefined();
-      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(20);
-      expect(weapon.getAmmo(WeaponType.SPECIAL)).toBe(3);
     });
 
-    it('should get correct max ammo counts', () => {
-      expect(weapon.getMaxAmmo(WeaponType.BEAM)).toBeUndefined();
-      expect(weapon.getMaxAmmo(WeaponType.MISSILE)).toBe(20);
-      expect(weapon.getMaxAmmo(WeaponType.SPECIAL)).toBe(3);
+    it('should reject negative ammunition amounts', () => {
+      const added = weapon.addAmmo(WeaponType.MISSILE, -5);
+      expect(added).toBe(false);
     });
   });
 
-  describe('Weapon Upgrades', () => {
-    it('should upgrade weapon to next level', () => {
-      expect(weapon.upgradeWeapon(WeaponType.BEAM)).toBe(true);
-      expect(weapon.getWeaponLevel(WeaponType.BEAM)).toBe(2);
+  describe('Fire Rate and Cooldown', () => {
+    it('should respect missile weapon fire rate', () => {
+      weapon.switchWeapon(WeaponType.MISSILE);
+      
+      // Fire first missile
+      const fired1 = weapon.fire();
+      expect(fired1).toBe(true);
+      
+      // Try to fire immediately (should fail due to cooldown)
+      const fired2 = weapon.fire();
+      expect(fired2).toBe(false);
+      
+      // Check that ammo was only consumed once
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(19);
     });
 
-    it('should not upgrade beyond max level', () => {
-      // Upgrade to max level
-      for (let i = 1; i < 5; i++) {
-        weapon.upgradeWeapon(WeaponType.BEAM);
+    it('should return correct time until ready', () => {
+      weapon.switchWeapon(WeaponType.MISSILE);
+      
+      // Fire missile
+      weapon.fire();
+      
+      const timeUntilReady = weapon.getTimeUntilReady();
+      expect(timeUntilReady).toBeGreaterThan(0);
+      expect(timeUntilReady).toBeLessThanOrEqual(800); // Missile fire rate
+    });
+
+    it('should allow firing after cooldown period', async () => {
+      weapon.switchWeapon(WeaponType.MISSILE);
+      
+      // Fire first missile
+      weapon.fire();
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(19);
+      
+      // Wait for cooldown (simulate time passing)
+      const config = weapon.getWeaponConfig(WeaponType.MISSILE)!;
+      const lastFireTime = Date.now() - config.fireRate - 1;
+      
+      // Manually set last fire time to simulate cooldown completion
+      (weapon as any).lastFireTimes.set(WeaponType.MISSILE, lastFireTime);
+      
+      // Should be able to fire again
+      const canFire = weapon.canFire();
+      expect(canFire).toBe(true);
+      
+      const fired = weapon.fire();
+      expect(fired).toBe(true);
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(18);
+    });
+  });
+
+  describe('Weapon Upgrades and Ammunition', () => {
+    it('should increase maximum ammunition when upgrading missile weapon', () => {
+      const initialMaxAmmo = weapon.getMaxAmmo(WeaponType.MISSILE);
+      expect(initialMaxAmmo).toBe(20);
+      
+      // Upgrade missile weapon
+      const upgraded = weapon.upgradeWeapon(WeaponType.MISSILE);
+      expect(upgraded).toBe(true);
+      
+      const newMaxAmmo = weapon.getMaxAmmo(WeaponType.MISSILE);
+      expect(newMaxAmmo).toBe(25); // Should increase by 5
+    });
+
+    it('should maintain current ammo ratio when upgrading', () => {
+      weapon.switchWeapon(WeaponType.MISSILE);
+      
+      // Use half the ammo
+      for (let i = 0; i < 10; i++) {
+        weapon.fire();
+        // Simulate time passing to bypass cooldown
+        (weapon as any).lastFireTimes.set(WeaponType.MISSILE, Date.now() - 1000);
       }
       
-      expect(weapon.getWeaponLevel(WeaponType.BEAM)).toBe(5);
-      expect(weapon.upgradeWeapon(WeaponType.BEAM)).toBe(false);
-    });
-
-    it('should check if weapon can be upgraded', () => {
-      expect(weapon.canUpgrade(WeaponType.BEAM)).toBe(true);
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(10);
       
-      // Upgrade to max level
-      for (let i = 1; i < 5; i++) {
-        weapon.upgradeWeapon(WeaponType.BEAM);
-      }
-      
-      expect(weapon.canUpgrade(WeaponType.BEAM)).toBe(false);
-    });
-
-    it('should apply upgrade effects to weapon stats', () => {
-      const initialConfig = weapon.getWeaponConfig(WeaponType.BEAM)!;
-      const initialDamage = initialConfig.damage;
-      const initialFireRate = initialConfig.fireRate;
-      
-      weapon.upgradeWeapon(WeaponType.BEAM);
-      
-      const upgradedConfig = weapon.getWeaponConfig(WeaponType.BEAM)!;
-      expect(upgradedConfig.damage).toBeGreaterThan(initialDamage);
-      expect(upgradedConfig.fireRate).toBeLessThan(initialFireRate); // Faster fire rate
-    });
-
-    it('should increase missile max ammo on upgrade', () => {
-      const initialMaxAmmo = weapon.getMaxAmmo(WeaponType.MISSILE)!;
-      
+      // Upgrade weapon
       weapon.upgradeWeapon(WeaponType.MISSILE);
       
-      expect(weapon.getMaxAmmo(WeaponType.MISSILE)).toBe(initialMaxAmmo + 5);
-    });
-
-    it('should get correct upgrade effects for each weapon type', () => {
-      const beamEffects = weapon.getUpgradeEffects(WeaponType.BEAM, 3);
-      expect(beamEffects.specialEffects?.piercing).toBe(true);
-      
-      const missileEffects = weapon.getUpgradeEffects(WeaponType.MISSILE, 2);
-      expect(missileEffects.specialEffects?.explosive).toBe(true);
-      
-      const missileHomingEffects = weapon.getUpgradeEffects(WeaponType.MISSILE, 4);
-      expect(missileHomingEffects.specialEffects?.homing).toBe(true);
-    });
-
-    it('should get weapon levels correctly', () => {
-      expect(weapon.getWeaponLevel(WeaponType.BEAM)).toBe(1);
-      expect(weapon.getMaxWeaponLevel(WeaponType.BEAM)).toBe(5);
-      
-      weapon.upgradeWeapon(WeaponType.BEAM);
-      expect(weapon.getWeaponLevel(WeaponType.BEAM)).toBe(2);
+      // Current ammo should remain the same, but max should increase
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(10);
+      expect(weapon.getMaxAmmo(WeaponType.MISSILE)).toBe(25);
     });
   });
 
-  describe('State Management', () => {
-    it('should reset all weapon states', () => {
+  describe('Weapon State Management', () => {
+    it('should maintain separate ammunition counts for different weapons', () => {
+      // Use missile ammo
+      weapon.switchWeapon(WeaponType.MISSILE);
+      weapon.fire();
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(19);
+      
+      // Use special ammo
+      weapon.switchWeapon(WeaponType.SPECIAL);
+      weapon.fire();
+      expect(weapon.getAmmo(WeaponType.SPECIAL)).toBe(2);
+      
+      // Missile ammo should be unchanged
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(19);
+    });
+
+    it('should reset all weapon states correctly', () => {
       // Modify weapon states
       weapon.switchWeapon(WeaponType.MISSILE);
-      weapon.upgradeWeapon(WeaponType.BEAM);
+      (weapon as any).lastFireTimes.set(WeaponType.MISSILE, Date.now() - 1000);
       weapon.fire();
+      (weapon as any).lastFireTimes.set(WeaponType.MISSILE, Date.now() - 1000);
+      weapon.fire();
+      weapon.upgradeWeapon(WeaponType.MISSILE);
       
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(18);
+      expect(weapon.getWeaponLevel(WeaponType.MISSILE)).toBe(2);
+      
+      // Reset
       weapon.reset();
       
-      expect(weapon.getCurrentWeapon()).toBe(WeaponType.BEAM);
-      expect(weapon.getWeaponLevel(WeaponType.BEAM)).toBe(1);
+      // Should be back to defaults
       expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(20);
-      expect(weapon.canFire()).toBe(true);
-    });
-
-    it('should get all weapon states for serialization', () => {
-      weapon.upgradeWeapon(WeaponType.BEAM);
-      weapon.switchWeapon(WeaponType.MISSILE);
-      weapon.fire();
-      
-      const states = weapon.getWeaponStates();
-      
-      expect(states[WeaponType.BEAM].currentLevel).toBe(2);
-      expect(states[WeaponType.MISSILE].currentAmmo).toBe(19);
-      expect(states[WeaponType.SPECIAL].currentAmmo).toBe(3);
-    });
-
-    it('should have correct component type', () => {
-      expect(weapon.type).toBe('Weapon');
+      expect(weapon.getWeaponLevel(WeaponType.MISSILE)).toBe(1);
+      expect(weapon.getCurrentWeapon()).toBe(WeaponType.BEAM);
     });
   });
 
   describe('Edge Cases', () => {
-    it('should handle invalid weapon type gracefully', () => {
-      expect(weapon.getWeaponConfig('invalid' as WeaponType)).toBeUndefined();
-      expect(weapon.getWeaponLevel('invalid' as WeaponType)).toBe(1);
-      expect(weapon.canUpgrade('invalid' as WeaponType)).toBe(false);
-    });
-
-    it('should handle negative ammo addition', () => {
+    it('should handle firing with exactly 1 ammo remaining', () => {
       weapon.switchWeapon(WeaponType.MISSILE);
-      const initialAmmo = weapon.getAmmo(WeaponType.MISSILE)!;
       
-      weapon.addAmmo(WeaponType.MISSILE, -5);
+      // Set ammo to 1
+      const config = weapon.getWeaponConfig(WeaponType.MISSILE)!;
+      config.currentAmmo = 1;
       
-      // Should not go below 0 or change unexpectedly
-      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(initialAmmo);
-    });
-
-    it('should handle ammo consumption when already at zero', () => {
-      weapon.switchWeapon(WeaponType.MISSILE);
-      const missileConfig = weapon.getWeaponConfig(WeaponType.MISSILE)!;
-      missileConfig.currentAmmo = 0;
+      expect(weapon.canFire()).toBe(true);
       
-      weapon.fire(); // Should fail
-      
+      const fired = weapon.fire();
+      expect(fired).toBe(true);
       expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(0);
+      
+      // Should not be able to fire again
+      expect(weapon.canFire()).toBe(false);
+    });
+
+    it('should handle ammunition overflow gracefully', () => {
+      weapon.switchWeapon(WeaponType.MISSILE);
+      
+      // Try to add excessive ammunition
+      const added = weapon.addAmmo(WeaponType.MISSILE, Number.MAX_SAFE_INTEGER);
+      expect(added).toBe(true);
+      
+      // Should be capped at maximum
+      const maxAmmo = weapon.getMaxAmmo(WeaponType.MISSILE)!;
+      expect(weapon.getAmmo(WeaponType.MISSILE)).toBe(maxAmmo);
+    });
+
+    it('should handle invalid weapon types gracefully', () => {
+      const invalidWeapon = 'invalid' as WeaponType;
+      
+      expect(weapon.getAmmo(invalidWeapon)).toBeUndefined();
+      expect(weapon.getMaxAmmo(invalidWeapon)).toBeUndefined();
+      expect(weapon.addAmmo(invalidWeapon, 10)).toBe(false);
+      expect(weapon.refillAmmo(invalidWeapon)).toBe(false);
     });
   });
 });

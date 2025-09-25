@@ -333,6 +333,15 @@ export class Weapon implements Component {
     }
 
     /**
+     * Get time since last shot was fired (in milliseconds)
+     */
+    getTimeSinceLastShot(): number {
+        const currentTime = Date.now();
+        const lastFireTime = this.lastFireTimes.get(this.currentWeapon) || 0;
+        return currentTime - lastFireTime;
+    }
+
+    /**
      * Reset all weapon states (for testing or game restart)
      */
     reset(): void {

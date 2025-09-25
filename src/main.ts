@@ -5,8 +5,9 @@
 import { Entity, Component, GameState } from './core/interfaces';
 import { GameEngine, InputManager } from './core/index';
 import { Transform, Sprite, Background } from './components/index';
-import { RenderSystem, ProjectileSystem, CollisionSystem, BackgroundSystem, ObstacleSpawner } from './systems/index';
-import { Player, Projectile, Obstacle, Enemy } from './entities/index';
+import { RenderSystem, ProjectileSystem, CollisionSystem, BackgroundSystem, ObstacleSpawner, UISystem } from './systems/index';
+import { Player, Obstacle, Enemy } from './entities/index';
+import { BaseProjectile } from './entities/ProjectileTypes';
 
 /**
  * Basic Entity implementation
@@ -143,8 +144,18 @@ class Game {
 
     this.gameEngine.addSystem(this.obstacleSpawner);
 
+    // Create and add the UI system (should render last, on top of everything)
+    const uiSystem = new UISystem(ctx, canvasSize.width, canvasSize.height, {
+      showAmmo: true,
+      showWeaponInfo: true,
+      showScore: false, // Will implement score system later
+      showHealth: false, // Will implement health system later
+      showFPS: false
+    });
+    this.gameEngine.addSystem(uiSystem);
+
     // Set up player projectile creation callback
-    this.player.setProjectileCreationCallback((projectile: Projectile) => {
+    this.player.setProjectileCreationCallback((projectile: BaseProjectile) => {
       this.gameEngine.addEntity(projectile);
     });
 

@@ -5,11 +5,11 @@
 
 import { System, Entity } from '../core/interfaces';
 import { ComponentTypes } from '../core/Component';
-import { Projectile } from '../entities/Projectile';
+import { BaseProjectile } from '../entities/ProjectileTypes';
 
 export class ProjectileSystem implements System {
   public readonly name = 'ProjectileSystem';
-  
+
   private projectilesToRemove: Set<string> = new Set();
 
   constructor(_canvasWidth: number, _canvasHeight: number) {
@@ -20,9 +20,9 @@ export class ProjectileSystem implements System {
    * Filter entities that are projectiles (have Transform and Sprite components)
    */
   filter(entity: Entity): boolean {
-    return entity.hasComponent(ComponentTypes.TRANSFORM) && 
-           entity.hasComponent(ComponentTypes.SPRITE) &&
-           entity instanceof Projectile;
+    return entity.hasComponent(ComponentTypes.TRANSFORM) &&
+      entity.hasComponent(ComponentTypes.SPRITE) &&
+      entity instanceof BaseProjectile;
   }
 
   /**
@@ -34,15 +34,15 @@ export class ProjectileSystem implements System {
 
     // Process all projectile entities
     const projectiles = entities.filter(this.filter);
-    
+
     for (const entity of projectiles) {
-      const projectile = entity as Projectile;
-      
+      const projectile = entity as BaseProjectile;
+
       // Update the projectile
       projectile.update(deltaTime);
-      
-      // Check if projectile should be removed
-      if (!projectile.isAlive()) {
+
+      // Check if projectile should be removed (BaseProjectile uses active property)
+      if (!projectile.active) {
         this.projectilesToRemove.add(projectile.id);
       }
     }
@@ -58,26 +58,29 @@ export class ProjectileSystem implements System {
   /**
    * Get all active projectiles
    */
-  getActiveProjectiles(entities: Entity[]): Projectile[] {
-    return entities.filter(this.filter) as Projectile[];
+  getActiveProjectiles(entities: Entity[]): BaseProjectile[] {
+    return entities.filter(this.filter) as BaseProjectile[];
   }
 
   /**
    * Get projectiles within a specific area (useful for collision detection)
    */
   getProjectilesInArea(
-    entities: Entity[], 
-    x: number, 
-    y: number, 
-    width: number, 
+    entities: Entity[],
+    x: number,
+    y: number,
+    width: number,
     height: number
-  ): Projectile[] {
+  ): BaseProjectile[] {
     const projectiles = this.getActiveProjectiles(entities);
-    
+
     return projectiles.filter(projectile => {
       const pos = projectile.getPosition();
-      const dims = projectile.getDimensions();
-      
+
+      // Get dimensions from the projectile's config
+      const config = (projectile as any).config;
+      const dims = { width: config?.width || 8, height: config?.height || 4 };
+
       // Simple AABB intersection check
       return (
         pos.x - dims.width / 2 < x + width &&

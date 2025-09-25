@@ -7,13 +7,15 @@ import { Entity } from '../core/Entity';
 import { Transform } from '../components/Transform';
 import { Sprite } from '../components/Sprite';
 import { Collider, CollisionLayers, CollisionMasks } from '../components/Collider';
+import { Weapon, WeaponType } from '../components/Weapon';
 import { InputManager } from '../core/InputManager';
-import { Projectile } from './Projectile';
+import { createProjectile, BaseProjectile } from './ProjectileTypes';
 
 export class Player extends Entity {
   private transform: Transform;
   private sprite: Sprite;
   private collider: Collider;
+  private weapon: Weapon;
   private inputManager: InputManager;
 
   // Movement properties
@@ -25,10 +27,8 @@ export class Player extends Entity {
   private readonly shipWidth: number = 32;
   private readonly shipHeight: number = 32;
 
-  // Weapon properties
-  private readonly fireRate: number = 200; // milliseconds between shots
-  private lastFireTime: number = 0;
-  private projectileCreationCallback?: (projectile: Projectile) => void;
+  // Projectile creation callback
+  private projectileCreationCallback?: (projectile: BaseProjectile) => void;
 
   constructor(
     x: number,
@@ -47,6 +47,10 @@ export class Player extends Entity {
     // Create and add Transform component
     this.transform = new Transform(x, y, 0, 0, 0);
     this.addComponent(this.transform);
+
+    // Create and add Weapon component
+    this.weapon = new Weapon(WeaponType.BEAM);
+    this.addComponent(this.weapon);
 
     // Create and add Sprite component
     this.sprite = new Sprite(this.shipWidth, this.shipHeight);
@@ -238,35 +242,85 @@ export class Player extends Entity {
    * Process weapon input for firing projectiles
    */
   private processWeaponInput(_deltaTime: number): void {
-    const currentTime = Date.now();
+    // Primary fire (beam weapon) - Space key
+    if (this.inputManager.isKeyPressed('space')) {
+      this.fireCurrentWeapon();
+    }
 
-    // Check if primary fire button is pressed and enough time has passed
-    if (this.inputManager.isKeyPressed('space') &&
-      currentTime - this.lastFireTime >= this.fireRate) {
-      this.fireBeamWeapon();
-      this.lastFireTime = currentTime;
+    // Secondary fire (missile weapon) - X key
+    if (this.inputManager.isKeyPressed('keyx')) {
+      this.fireMissileWeapon();
+    }
+
+    // Weapon switching - Tab key
+    if (this.inputManager.isKeyPressed('tab')) {
+      this.weapon.cycleWeapon();
+    }
+
+    // Weapon selection keys
+    if (this.inputManager.isKeyPressed('digit1')) {
+      this.weapon.switchWeapon(WeaponType.BEAM);
+    }
+    if (this.inputManager.isKeyPressed('digit2')) {
+      this.weapon.switchWeapon(WeaponType.MISSILE);
+    }
+    if (this.inputManager.isKeyPressed('digit3')) {
+      this.weapon.switchWeapon(WeaponType.SPECIAL);
     }
   }
 
   /**
-   * Fire a beam weapon projectile
+   * Fire the currently selected weapon
    */
-  private fireBeamWeapon(): void {
+  private fireCurrentWeapon(): void {
+    if (!this.weapon.canFire()) {
+      return;
+    }
+
+    if (this.weapon.fire()) {
+      this.createProjectileForCurrentWeapon();
+    }
+  }
+
+  /**
+   * Fire missile weapon specifically (for secondary fire)
+   */
+  private fireMissileWeapon(): void {
+    const currentWeapon = this.weapon.getCurrentWeapon();
+
+    // Temporarily switch to missile weapon
+    this.weapon.switchWeapon(WeaponType.MISSILE);
+
+    if (this.weapon.canFire() && this.weapon.fire()) {
+      this.createProjectileForCurrentWeapon();
+    }
+
+    // Switch back to original weapon
+    this.weapon.switchWeapon(currentWeapon);
+  }
+
+  /**
+   * Create a projectile for the current weapon type
+   */
+  private createProjectileForCurrentWeapon(): void {
+    const weaponType = this.weapon.getCurrentWeapon();
+    const config = this.weapon.getCurrentWeaponConfig();
+    const upgradeEffects = this.weapon.getUpgradeEffects(weaponType, config.currentLevel);
+
     // Calculate projectile spawn position (front of the ship)
     const spawnX = this.transform.position.x + this.shipWidth / 2;
     const spawnY = this.transform.position.y;
 
-    // Create projectile moving to the right
-    const projectile = new Projectile(
+    // Create projectile using the factory function
+    const projectile = createProjectile(
+      weaponType,
       spawnX,
       spawnY,
       1, // Velocity X (normalized, will be multiplied by speed)
       0, // Velocity Y
       this.canvasWidth,
       this.canvasHeight,
-      600, // Speed
-      1,   // Damage
-      3    // Lifetime in seconds
+      upgradeEffects
     );
 
     // Call the callback to add projectile to the game
@@ -278,28 +332,78 @@ export class Player extends Entity {
   /**
    * Set the callback function for creating projectiles
    */
-  setProjectileCreationCallback(callback: (projectile: Projectile) => void): void {
+  setProjectileCreationCallback(callback: (projectile: BaseProjectile) => void): void {
     this.projectileCreationCallback = callback;
   }
 
   /**
-   * Get the fire rate in milliseconds
+   * Get the weapon component
    */
-  getFireRate(): number {
-    return this.fireRate;
+  getWeapon(): Weapon {
+    return this.weapon;
   }
 
   /**
-   * Get the time since last shot
+   * Get current weapon type
    */
-  getTimeSinceLastShot(): number {
-    return Date.now() - this.lastFireTime;
+  getCurrentWeaponType(): WeaponType {
+    return this.weapon.getCurrentWeapon();
   }
 
   /**
-   * Check if the player can fire (fire rate cooldown check)
+   * Get ammunition count for a weapon type
+   */
+  getAmmo(weaponType: WeaponType): number | undefined {
+    return this.weapon.getAmmo(weaponType);
+  }
+
+  /**
+   * Get maximum ammunition count for a weapon type
+   */
+  getMaxAmmo(weaponType: WeaponType): number | undefined {
+    return this.weapon.getMaxAmmo(weaponType);
+  }
+
+  /**
+   * Add ammunition to a weapon type
+   */
+  addAmmo(weaponType: WeaponType, amount: number): boolean {
+    return this.weapon.addAmmo(weaponType, amount);
+  }
+
+  /**
+   * Upgrade a weapon type
+   */
+  upgradeWeapon(weaponType: WeaponType): boolean {
+    return this.weapon.upgradeWeapon(weaponType);
+  }
+
+  /**
+   * Check if the player can fire the current weapon
    */
   canFire(): boolean {
-    return Date.now() - this.lastFireTime >= this.fireRate;
+    return this.weapon.canFire();
+  }
+
+  /**
+   * Get time until current weapon can fire again
+   */
+  getTimeUntilReady(): number {
+    return this.weapon.getTimeUntilReady();
+  }
+
+  /**
+   * Get the fire rate of the current weapon in milliseconds
+   */
+  getFireRate(): number {
+    const config = this.weapon.getCurrentWeaponConfig();
+    return config.fireRate;
+  }
+
+  /**
+   * Get time since last shot was fired in milliseconds
+   */
+  getTimeSinceLastShot(): number {
+    return this.weapon.getTimeSinceLastShot();
   }
 }

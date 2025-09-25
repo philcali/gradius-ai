@@ -87,7 +87,7 @@
   - Write unit tests for weapon system state management
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
 
-- [ ] 12. Add missile weapon system with limited ammunition
+- [x] 12. Add missile weapon system with limited ammunition
   - Implement missile projectile entity with different properties
   - Add missile ammunition consumption and tracking
   - Create missile firing logic with ammo checking
