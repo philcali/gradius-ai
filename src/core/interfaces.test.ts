@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GameEntity } from '../main';
+import { Entity } from './Entity';
 import { Component } from './interfaces';
 
 // Mock component for testing
@@ -21,12 +21,12 @@ class MockComponent implements Component {
   }
 }
 
-describe('GameEntity', () => {
-  let entity: GameEntity;
+describe('Entity', () => {
+  let entity: Entity;
   let mockComponent: MockComponent;
 
   beforeEach(() => {
-    entity = new GameEntity('test-entity');
+    entity = new Entity('test-entity');
     mockComponent = new MockComponent();
   });
 

@@ -2,348 +2,115 @@
  * Main entry point for the Space Shooter game
  */
 
-import { Entity, Component, GameState } from './core/interfaces';
-import { GameEngine, InputManager } from './core/index';
-import { Transform, Sprite, Background } from './components/index';
-import { RenderSystem, ProjectileSystem, CollisionSystem, BackgroundSystem, ObstacleSpawner, PowerUpSpawner, UISystem } from './systems/index';
-import { Player, Obstacle, Enemy, PowerUp } from './entities/index';
-import { BaseProjectile } from './entities/ProjectileTypes';
+
+import { GameEngine, InputManager, GameState, GameScene, SceneManager } from './core/index';
+import { MenuScene, GameplayScene, PausedScene, GameOverScene } from './scenes/index';
 
 /**
- * Basic Entity implementation
- */
-class GameEntity implements Entity {
-  public readonly id: string;
-  public active: boolean = true;
-  public readonly components: Map<string, Component> = new Map();
-
-  constructor(id: string) {
-    this.id = id;
-  }
-
-  addComponent<T extends Component>(component: T): void {
-    this.components.set(component.type, component);
-  }
-
-  getComponent<T extends Component>(type: string): T | undefined {
-    return this.components.get(type) as T | undefined;
-  }
-
-  hasComponent(type: string): boolean {
-    return this.components.has(type);
-  }
-
-  removeComponent(type: string): boolean {
-    const component = this.components.get(type);
-    if (component && component.destroy) {
-      component.destroy();
-    }
-    return this.components.delete(type);
-  }
-
-  destroy(): void {
-    this.active = false;
-    // Clean up all components
-    for (const component of this.components.values()) {
-      if (component.destroy) {
-        component.destroy();
-      }
-    }
-    this.components.clear();
-  }
-}
-
-/**
- * Main Game class that manages the overall game state and coordinates with the GameEngine
+ * Main Game class that manages the overall game state and scene management
  */
 class Game {
   private gameEngine: GameEngine;
   private gameState: GameState;
+  private sceneManager: SceneManager;
   private inputManager: InputManager;
-  private player: Player;
-  private projectileSystem!: ProjectileSystem;
-  private collisionSystem!: CollisionSystem;
-  private obstacleSpawner!: ObstacleSpawner;
-  private powerUpSpawner!: PowerUpSpawner;
+  private ctx: CanvasRenderingContext2D;
 
   constructor() {
     // Initialize the game engine with the canvas
     this.gameEngine = new GameEngine('gameCanvas');
+    this.ctx = this.gameEngine.getContext();
 
     // Initialize input manager
     const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
     this.inputManager = new InputManager(canvas);
 
     // Initialize game state
-    this.gameState = {
-      score: 0,
-      lives: 3,
-      level: 1,
-      difficulty: 1,
-      paused: false,
-      gameOver: false
-    };
+    this.gameState = new GameState();
+
+    // Initialize scene manager
+    this.sceneManager = new SceneManager(this.gameState, this.ctx);
 
     console.log('Space Shooter initialized');
     const canvasSize = this.gameEngine.getCanvasSize();
     console.log(`Canvas size: ${canvasSize.width}x${canvasSize.height}`);
 
-    // Create player
-    this.player = new Player(
-      100, // Start position X
-      canvasSize.height / 2, // Start position Y (center vertically)
-      canvasSize.width,
-      canvasSize.height,
-      this.inputManager
-    );
+    // Set up scenes
+    this.setupScenes(canvasSize);
 
-    // Set up rendering system and add player
-    this.setupGame();
+    // Set up game state callbacks
+    this.setupGameStateCallbacks();
   }
 
   /**
-   * Set up the game systems and entities
+   * Set up all game scenes
    */
-  private setupGame(): void {
-    const canvasSize = this.gameEngine.getCanvasSize();
-    const ctx = this.gameEngine.getContext();
+  private setupScenes(canvasSize: { width: number; height: number }): void {
+    // Create and register menu scene
+    const menuScene = new MenuScene(this.gameState, this.ctx, canvasSize.width, canvasSize.height);
+    this.sceneManager.registerScene(GameScene.MENU, menuScene);
 
-    // Create and add the background system (first, so it renders behind everything)
-    const backgroundSystem = new BackgroundSystem(ctx, canvasSize.width, canvasSize.height);
-    this.gameEngine.addSystem(backgroundSystem);
+    // Create and register gameplay scene
+    const gameplayScene = new GameplayScene(this.gameState, this.ctx, canvasSize.width, canvasSize.height, this.inputManager);
+    this.sceneManager.registerScene(GameScene.GAMEPLAY, gameplayScene);
 
-    // Create and add the render system
-    const renderSystem = new RenderSystem(ctx, canvasSize.width, canvasSize.height);
-    this.gameEngine.addSystem(renderSystem);
+    // Create and register paused scene
+    const pausedScene = new PausedScene(this.gameState, this.ctx, canvasSize.width, canvasSize.height);
+    this.sceneManager.registerScene(GameScene.PAUSED, pausedScene);
 
-    // Create and add the projectile system
-    this.projectileSystem = new ProjectileSystem(canvasSize.width, canvasSize.height);
-    this.gameEngine.addSystem(this.projectileSystem);
+    // Create and register game over scene
+    const gameOverScene = new GameOverScene(this.gameState, this.ctx, canvasSize.width, canvasSize.height);
+    this.sceneManager.registerScene(GameScene.GAME_OVER, gameOverScene);
 
-    // Create and add the collision system
-    this.collisionSystem = new CollisionSystem();
-    this.collisionSystem.setDebugContext(ctx);
-    this.collisionSystem.setDebugRender(true); // Enable debug rendering for testing
-    this.gameEngine.addSystem(this.collisionSystem);
-
-    // Create and add the obstacle spawner system
-    this.obstacleSpawner = new ObstacleSpawner(canvasSize.width, canvasSize.height, {
-      minSpawnInterval: 2000, // 2 seconds
-      maxSpawnInterval: 4000, // 4 seconds
-      enemySpawnChance: 0.4,  // 40% chance for enemies
-      enabled: true
-    });
-
-    // Set up spawner callbacks
-    this.obstacleSpawner.setObstacleSpawnCallback((obstacle: Obstacle) => {
-      this.gameEngine.addEntity(obstacle);
-    });
-
-    this.obstacleSpawner.setEnemySpawnCallback((enemy: Enemy) => {
-      this.gameEngine.addEntity(enemy);
-    });
-
-    this.gameEngine.addSystem(this.obstacleSpawner);
-
-    // Create and add the power-up spawner system
-    this.powerUpSpawner = new PowerUpSpawner(canvasSize.width, canvasSize.height, {
-      spawnInterval: 6000, // 6 seconds base interval
-      spawnVariance: 3000, // ±3 seconds variance
-      weaponUpgradeChance: 0.4, // 40% chance
-      ammunitionChance: 0.3, // 30% chance
-      specialEffectChance: 0.2, // 20% chance
-      scoreMultiplierChance: 0.1, // 10% chance
-      maxPowerUpsOnScreen: 2 // Limit to 2 power-ups on screen
-    });
-
-    // Set up power-up spawner callbacks
-    this.powerUpSpawner.setPowerUpCreationCallback((powerUp: PowerUp) => {
-      // Set up power-up collection callback
-      powerUp.setCollectionCallback((collectedPowerUp: PowerUp) => {
-        this.player.collectPowerUp(collectedPowerUp);
-      });
-      
-      this.gameEngine.addEntity(powerUp);
-    });
-
-    this.gameEngine.addSystem(this.powerUpSpawner);
-
-    // Create and add the UI system (should render last, on top of everything)
-    const uiSystem = new UISystem(ctx, canvasSize.width, canvasSize.height, {
-      showAmmo: true,
-      showWeaponInfo: true,
-      showScore: false, // Will implement score system later
-      showHealth: false, // Will implement health system later
-      showFPS: false
-    });
-    this.gameEngine.addSystem(uiSystem);
-
-    // Set up player projectile creation callback
-    this.player.setProjectileCreationCallback((projectile: BaseProjectile) => {
-      this.gameEngine.addEntity(projectile);
-    });
-
-    // Set up player power-up collection callback
-    this.player.setPowerUpCollectionCallback((powerUp: PowerUp, player: Player) => {
-      // Update game state with collected power-up
-      this.gameState.score = player.getScore();
-      
-      // Log collection for debugging
-      console.log(`Power-up collected! Type: ${powerUp.getType()}, Score: ${this.gameState.score}`);
-      
-      // TODO: Add visual/audio feedback here
-      // TODO: Update UI to show collection feedback
-    });
-
-    // Add player to the game engine
-    this.gameEngine.addEntity(this.player);
-
-    // Create a simple test entity to verify rendering works
-    const testEntity = new GameEntity('test-entity');
-    const testTransform = new Transform(200, 200);
-    const testSprite = new Sprite(64, 64);
-    testSprite.setTint('#ff00ff'); // Bright magenta
-    testSprite.setLayer(10); // High layer to render on top
-    testEntity.addComponent(testTransform);
-    testEntity.addComponent(testSprite);
-    this.gameEngine.addEntity(testEntity);
-
-    // Create some demo entities for visual reference
-    this.createDemoEntities();
-
-    // Set up projectile cleanup
-    this.setupProjectileCleanup();
+    // Start with menu scene
+    this.gameState.transitionToScene(GameScene.MENU);
   }
 
   /**
-   * Create some demo entities for visual reference
+   * Set up game state event callbacks
    */
-  private createDemoEntities(): void {
-    const canvasSize = this.gameEngine.getCanvasSize();
-
-    // Create background layers with parallax scrolling
-    this.createBackgroundLayers(canvasSize);
-
-    // Create a target for the player to reach
-    const target = new GameEntity('target');
-    const targetTransform = new Transform(canvasSize.width - 100, canvasSize.height / 2);
-    const targetSprite = new Sprite(32, 32);
-    targetSprite.setTint('#44ff44'); // Green target
-    targetSprite.setLayer(0);
-
-    target.addComponent(targetTransform);
-    target.addComponent(targetSprite);
-    this.gameEngine.addEntity(target);
-
-    // Add some visual feedback behaviors
-    this.setupEntityBehaviors();
-  }
-
-  /**
-   * Create multiple background layers with parallax scrolling
-   */
-  private createBackgroundLayers(canvasSize: { width: number; height: number }): void {
-    // Deep space background (slowest parallax)
-    const deepSpace = new GameEntity('background-deep-space');
-    const deepSpaceBackground = new Background(
-      canvasSize.width,
-      canvasSize.height,
-      30, // Slow scroll speed
-      0.2, // Low parallax factor
-      -3   // Render behind everything
-    );
-    deepSpaceBackground.setPattern('nebula');
-    deepSpaceBackground.setAlpha(0.8);
-    deepSpace.addComponent(deepSpaceBackground);
-    this.gameEngine.addEntity(deepSpace);
-
-    // Distant stars layer
-    const distantStars = new GameEntity('background-distant-stars');
-    const distantStarsBackground = new Background(
-      canvasSize.width,
-      canvasSize.height,
-      50, // Medium-slow scroll speed
-      0.4, // Medium-low parallax factor
-      -2   // Render layer
-    );
-    distantStarsBackground.setPattern('stars');
-    distantStarsBackground.setAlpha(0.6);
-    distantStarsBackground.setTileSize(400, 400); // Larger tiles for seamless tiling
-    distantStars.addComponent(distantStarsBackground);
-    this.gameEngine.addEntity(distantStars);
-
-    // Close stars layer (fastest parallax)
-    const closeStars = new GameEntity('background-close-stars');
-    const closeStarsBackground = new Background(
-      canvasSize.width,
-      canvasSize.height,
-      80, // Faster scroll speed
-      0.7, // Higher parallax factor
-      -1   // Render layer
-    );
-    closeStarsBackground.setPattern('stars');
-    closeStarsBackground.setAlpha(0.9);
-    closeStarsBackground.setTileSize(200, 200); // Smaller tiles for more frequent tiling
-    closeStars.addComponent(closeStarsBackground);
-    this.gameEngine.addEntity(closeStars);
-
-    // Optional grid overlay for debugging/retro effect
-    const gridOverlay = new GameEntity('background-grid');
-    const gridBackground = new Background(
-      canvasSize.width,
-      canvasSize.height,
-      100, // Match main scroll speed
-      1.0, // Full parallax factor
-      -0.5 // Just behind gameplay elements
-    );
-    gridBackground.setPattern('grid');
-    gridBackground.setAlpha(0.1); // Very subtle
-    gridOverlay.addComponent(gridBackground);
-    this.gameEngine.addEntity(gridOverlay);
-  }
-
-  /**
-   * Set up behaviors for demo entities
-   */
-  private setupEntityBehaviors(): void {
-    // Add a simple system to make the target pulse
-    const behaviorSystem = {
-      name: 'BehaviorSystem',
-      update: (entities: Entity[], _deltaTime: number) => {
-        for (const entity of entities) {
-          const transform = entity.getComponent<Transform>('transform');
-          const sprite = entity.getComponent<Sprite>('sprite');
-          if (!transform || !sprite) continue;
-
-          // Make the target pulse by changing its scale
-          if (entity.id === 'target') {
-            const time = Date.now() * 0.003;
-            const scale = 1 + Math.sin(time) * 0.2;
-            transform.setScale(scale);
-          }
+  private setupGameStateCallbacks(): void {
+    this.gameState.setCallbacks({
+      onScoreChange: (newScore: number, oldScore: number) => {
+        console.log(`Score changed: ${Math.floor(oldScore)} -> ${Math.floor(newScore)}`);
+      },
+      onLivesChange: (newLives: number, oldLives: number) => {
+        console.log(`Lives changed: ${oldLives} -> ${newLives}`);
+        if (newLives <= 0) {
+          console.log('Game Over - No lives remaining');
         }
+      },
+      onLevelChange: (newLevel: number, oldLevel: number) => {
+        console.log(`Level changed: ${oldLevel} -> ${newLevel}`);
+      },
+      onGameOver: (finalScore: number) => {
+        console.log(`Game Over! Final Score: ${Math.floor(finalScore)}`);
+      },
+      onRestart: () => {
+        console.log('Game restarted');
       }
-    };
-
-    this.gameEngine.addSystem(behaviorSystem);
+    });
   }
 
   /**
-   * Set up projectile cleanup system
+   * Update game logic - called by the game engine
    */
-  private setupProjectileCleanup(): void {
-    // Add a cleanup system that removes dead projectiles
-    const cleanupSystem = {
-      name: 'ProjectileCleanupSystem',
-      update: (_entities: Entity[], _deltaTime: number) => {
-        const projectilesToRemove = this.projectileSystem.getProjectilesToRemove();
-        for (const projectileId of projectilesToRemove) {
-          this.gameEngine.removeEntity(projectileId);
-        }
-      }
-    };
+  private updateGame(deltaTime: number): void {
+    // Handle input for current scene
+    const inputState = this.inputManager.getInputState();
+    
+    this.sceneManager.handleInput(inputState);
+    
+    // Update current scene
+    this.sceneManager.update(deltaTime);
+  }
 
-    this.gameEngine.addSystem(cleanupSystem);
+  /**
+   * Render game - called by the game engine
+   */
+  private renderGame(): void {
+    // Scene manager handles rendering
+    this.sceneManager.render();
   }
 
   /**
@@ -361,10 +128,46 @@ class Game {
   }
 
   /**
+   * Get the scene manager
+   */
+  getSceneManager(): SceneManager {
+    return this.sceneManager;
+  }
+
+  /**
    * Start the game
    */
   start(): void {
     console.log('Starting Space Shooter...');
+    
+    // Override the game engine's update and render methods to use scene management
+    const gameLoop = (currentTime: number) => {
+      // Calculate delta time
+      const deltaTime = currentTime - this.gameEngine.lastTime;
+      this.gameEngine.lastTime = currentTime;
+      this.gameEngine.deltaTime = deltaTime;
+
+      // Update FPS counter
+      this.gameEngine.updateFPS(currentTime);
+
+      // Update game through scene manager
+      this.updateGame(deltaTime);
+
+      // Render game through scene manager
+      this.renderGame();
+
+      // Render FPS counter
+      this.gameEngine.renderFPS();
+
+      // Continue the loop if still running
+      if (this.gameEngine.running) {
+        requestAnimationFrame(gameLoop);
+      }
+    };
+
+    // Replace the game loop
+    (this.gameEngine as any).gameLoop = gameLoop;
+
     this.gameEngine.start();
   }
 
@@ -373,6 +176,14 @@ class Game {
    */
   stop(): void {
     console.log('Stopping Space Shooter...');
+    this.gameEngine.stop();
+  }
+
+  /**
+   * Clean up resources
+   */
+  destroy(): void {
+    this.sceneManager.destroy();
     this.gameEngine.stop();
   }
 }
@@ -401,4 +212,4 @@ window.addEventListener('load', () => {
 });
 
 // Export for potential testing
-export { GameEntity, Game };
+export { Game };

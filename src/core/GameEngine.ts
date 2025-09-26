@@ -8,9 +8,9 @@ import { Entity, System } from './interfaces';
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private lastTime: number = 0;
-  private deltaTime: number = 0;
-  private running: boolean = false;
+  public lastTime: number = 0;
+  public deltaTime: number = 0;
+  public running: boolean = false;
   
   // FPS counter properties
   private fps: number = 0;
@@ -93,7 +93,7 @@ export class GameEngine {
   /**
    * Update FPS counter
    */
-  private updateFPS(currentTime: number): void {
+  public updateFPS(currentTime: number): void {
     this.frameCount++;
     
     if (currentTime - this.fpsUpdateTime >= this.FPS_UPDATE_INTERVAL) {
@@ -106,7 +106,7 @@ export class GameEngine {
   /**
    * Render FPS counter on screen
    */
-  private renderFPS(): void {
+  public renderFPS(): void {
     this.ctx.save();
     this.ctx.fillStyle = '#00ff00';
     this.ctx.font = '14px Courier New';
