@@ -249,8 +249,22 @@ export class Obstacle extends Entity {
     // Create destruction effect (placeholder for now)
     this.createDestructionEffect();
     
+    // Trigger scoring event (will be handled by scoring system)
+    this.triggerScoringEvent();
+    
     // Mark entity for removal
     this.destroy();
+  }
+
+  /**
+   * Trigger scoring event for destruction
+   */
+  private triggerScoringEvent(): void {
+    // Dispatch custom event that scoring system can listen to
+    const event = new CustomEvent('obstacleDestroyed', {
+      detail: { obstacle: this }
+    });
+    window.dispatchEvent(event);
   }
 
   /**

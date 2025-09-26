@@ -313,10 +313,24 @@ export class PowerUp extends Entity {
    * Handle power-up collection
    */
   private collect(): void {
+    // Trigger scoring event before collection callback
+    this.triggerScoringEvent();
+    
     if (this.collectionCallback) {
       this.collectionCallback(this);
     }
     this.active = false;
+  }
+
+  /**
+   * Trigger scoring event for collection
+   */
+  private triggerScoringEvent(): void {
+    // Dispatch custom event that scoring system can listen to
+    const event = new CustomEvent('powerUpCollected', {
+      detail: { powerUp: this }
+    });
+    window.dispatchEvent(event);
   }
 
   /**

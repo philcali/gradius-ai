@@ -272,6 +272,8 @@ export class Enemy extends Entity {
     this.health = Math.max(0, this.health - damage);
     
     if (this.health <= 0) {
+      // Trigger scoring event before destruction
+      this.triggerScoringEvent();
       this.destroy();
       return true; // Enemy was destroyed
     }
@@ -279,6 +281,17 @@ export class Enemy extends Entity {
     // Update sprite to reflect damage
     this.createPlaceholderSprite();
     return false;
+  }
+
+  /**
+   * Trigger scoring event for destruction
+   */
+  private triggerScoringEvent(): void {
+    // Dispatch custom event that scoring system can listen to
+    const event = new CustomEvent('enemyDestroyed', {
+      detail: { enemy: this }
+    });
+    window.dispatchEvent(event);
   }
 
   /**

@@ -132,7 +132,7 @@
   - Write unit tests for state transitions and data persistence
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 17. Add scoring and progression system
+- [x] 17. Add scoring and progression system
   - Implement score calculation for destroyed obstacles and enemies
   - Add score display in game UI
   - Create difficulty progression based on time or score
