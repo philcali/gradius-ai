@@ -32,7 +32,10 @@ export const ComponentTypes = {
   VELOCITY: 'velocity',
   INPUT: 'input',
   BACKGROUND: 'background',
-  SPECIAL_EFFECTS: 'special_effects'
+  SPECIAL_EFFECTS: 'special_effects',
+  PARTICLE_SYSTEM: 'particle_system',
+  VISUAL_EFFECTS: 'visual_effects',
+  ANIMATION: 'animation'
 } as const;
 
 export type ComponentType = typeof ComponentTypes[keyof typeof ComponentTypes];

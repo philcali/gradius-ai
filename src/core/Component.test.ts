@@ -64,6 +64,7 @@ describe('Component', () => {
     it('should have consistent values', () => {
       // Test that the values are what we expect
       const expectedTypes = {
+        ANIMATION: 'animation',
         TRANSFORM: 'transform',
         SPRITE: 'sprite',
         COLLIDER: 'collider',
@@ -71,6 +72,8 @@ describe('Component', () => {
         WEAPON: 'weapon',
         VELOCITY: 'velocity',
         INPUT: 'input',
+        PARTICLE_SYSTEM: 'particle_system',
+        VISUAL_EFFECTS: 'visual_effects',
         BACKGROUND: 'background',
         SPECIAL_EFFECTS: 'special_effects'
       };

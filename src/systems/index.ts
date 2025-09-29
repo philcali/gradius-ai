@@ -11,6 +11,7 @@ export { PowerUpSpawner } from './PowerUpSpawner';
 export { UISystem } from './UISystem';
 export { ScoringSystem } from './ScoringSystem';
 export { DifficultyManager } from './DifficultyManager';
+export { VisualEffectsSystem } from './VisualEffectsSystem';
 export type { SpawnConfig } from './ObstacleSpawner';
 export type { PowerUpSpawnConfig } from './PowerUpSpawner';
 export type { UIConfig } from './UISystem';

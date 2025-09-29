@@ -141,7 +141,7 @@
   - Write unit tests for score calculation and difficulty scaling
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-- [ ] 18. Create visual effects system
+- [x] 18. Create visual effects system
   - Implement particle system for explosions and muzzle flashes
   - Add destruction animations for obstacles and enemies
   - Create visual feedback for weapon firing and impacts
