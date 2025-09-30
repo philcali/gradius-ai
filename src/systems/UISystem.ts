@@ -98,6 +98,12 @@ export class UISystem implements System {
       yOffset += lineHeight * 2;
     }
 
+    // Show health/lives indicator
+    if (this.config.showHealth) {
+      this.renderHealthDisplay(player, leftMargin, yOffset);
+      yOffset += lineHeight;
+    }
+
     // Show combo information
     if (this.config.showCombo && this.scoringSystem) {
       this.renderComboInfo(leftMargin, yOffset);
@@ -127,6 +133,12 @@ export class UISystem implements System {
     // Show progress information
     if (this.config.showProgress) {
       this.renderProgressInfo(leftMargin, yOffset);
+      yOffset += lineHeight * 4;
+    }
+
+    // Show special weapon status
+    if (this.config.showWeaponInfo) {
+      this.renderSpecialWeaponStatus(player, leftMargin, yOffset);
     }
     
     this.ctx.restore();
@@ -143,6 +155,7 @@ export class UISystem implements System {
       const maxAmmo = player.getMaxAmmo(weaponType);
       const weaponName = this.getWeaponDisplayName(weaponType);
       const currentWeapon = player.getCurrentWeaponType();
+      const yPos = y + (index * 20);
       
       // Highlight current weapon
       if (weaponType === currentWeapon) {
@@ -152,20 +165,92 @@ export class UISystem implements System {
       }
 
       let ammoText: string;
+      let showAmmoBar = false;
+      let ammoPercent = 1;
+      
       if (ammo === undefined) {
         ammoText = '∞'; // Unlimited ammo (beam weapon)
       } else {
         ammoText = `${ammo}/${maxAmmo}`;
+        showAmmoBar = true;
+        ammoPercent = maxAmmo ? ammo / maxAmmo : 0;
         
         // Color code based on ammo level
         if (ammo === 0) {
           this.ctx.fillStyle = '#ff4444'; // Red for empty
         } else if (ammo < (maxAmmo || 0) * 0.3) {
           this.ctx.fillStyle = '#ffaa44'; // Orange for low
+        } else if (weaponType === currentWeapon) {
+          this.ctx.fillStyle = '#ffff00'; // Yellow for current weapon
         }
       }
 
-      this.ctx.fillText(`${weaponName}: ${ammoText}`, x, y + (index * 20));
+      // Render weapon name and ammo text
+      this.ctx.fillText(`${weaponName}: ${ammoText}`, x, yPos);
+      
+      // Render ammo bar for limited ammunition weapons
+      if (showAmmoBar && maxAmmo) {
+        const barWidth = 100;
+        const barHeight = 4;
+        const barX = x + 150;
+        const barY = yPos + 6;
+        
+        // Background
+        this.ctx.fillStyle = '#333333';
+        this.ctx.fillRect(barX, barY, barWidth, barHeight);
+        
+        // Ammo fill
+        let fillColor = '#00ff00'; // Green for full
+        if (ammoPercent <= 0) {
+          fillColor = '#ff0000'; // Red for empty
+        } else if (ammoPercent < 0.3) {
+          fillColor = '#ff8800'; // Orange for low
+        } else if (ammoPercent < 0.6) {
+          fillColor = '#ffff00'; // Yellow for medium
+        }
+        
+        this.ctx.fillStyle = fillColor;
+        this.ctx.fillRect(barX, barY, barWidth * ammoPercent, barHeight);
+        
+        // Border
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+        
+        // Flash effect for low ammo
+        if (ammoPercent < 0.2 && ammoPercent > 0) {
+          const flashIntensity = Math.sin(Date.now() * 0.01) * 0.5 + 0.5;
+          this.ctx.fillStyle = `rgba(255, 0, 0, ${flashIntensity * 0.3})`;
+          this.ctx.fillRect(barX, barY, barWidth, barHeight);
+        }
+      }
+      
+      // Show reload/cooldown indicator
+      if (weaponType === currentWeapon) {
+        const timeUntilReady = player.getTimeUntilReady();
+        if (timeUntilReady > 0) {
+          const fireRate = player.getFireRate();
+          const cooldownPercent = 1 - (timeUntilReady / fireRate);
+          
+          const cooldownBarX = x + 260;
+          const cooldownBarY = yPos + 6;
+          const cooldownBarWidth = 50;
+          const cooldownBarHeight = 4;
+          
+          // Background
+          this.ctx.fillStyle = '#333333';
+          this.ctx.fillRect(cooldownBarX, cooldownBarY, cooldownBarWidth, cooldownBarHeight);
+          
+          // Cooldown fill
+          this.ctx.fillStyle = '#00aaff';
+          this.ctx.fillRect(cooldownBarX, cooldownBarY, cooldownBarWidth * cooldownPercent, cooldownBarHeight);
+          
+          // Border
+          this.ctx.strokeStyle = '#ffffff';
+          this.ctx.lineWidth = 1;
+          this.ctx.strokeRect(cooldownBarX, cooldownBarY, cooldownBarWidth, cooldownBarHeight);
+        }
+      }
     });
   }
 
@@ -184,6 +269,7 @@ export class UISystem implements System {
       const weaponName = this.getWeaponDisplayName(weaponType);
       const canUpgrade = weapon.canUpgrade(weaponType);
       const currentWeapon = player.getCurrentWeaponType();
+      const yPos = y + (index * 18);
       
       // Color based on weapon status
       if (weaponType === currentWeapon) {
@@ -197,12 +283,47 @@ export class UISystem implements System {
       // Create level indicator (e.g., "★★★☆☆" for level 3/5)
       const levelIndicator = '★'.repeat(level) + '☆'.repeat(maxLevel - level);
       
-      const yPos = y + (index * 18);
       this.ctx.fillText(`${weaponName} Lv.${level}: ${levelIndicator}`, x, yPos);
+      
+      // Show upgrade progress bar
+      const progressBarX = x + 180;
+      const progressBarY = yPos + 2;
+      const progressBarWidth = 60;
+      const progressBarHeight = 8;
+      const upgradePercent = level / maxLevel;
+      
+      // Background
+      this.ctx.fillStyle = '#333333';
+      this.ctx.fillRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight);
+      
+      // Progress fill
+      let fillColor = '#00ff00'; // Green for maxed
+      if (upgradePercent < 1) {
+        fillColor = '#ffaa00'; // Orange for upgradeable
+      }
+      if (weaponType === currentWeapon) {
+        fillColor = '#ffff00'; // Yellow for current weapon
+      }
+      
+      this.ctx.fillStyle = fillColor;
+      this.ctx.fillRect(progressBarX, progressBarY, progressBarWidth * upgradePercent, progressBarHeight);
+      
+      // Border
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight);
       
       // Show upgrade effects for current level
       if (this.config.showWeaponInfo) {
-        this.renderWeaponUpgradeEffects(weapon, weaponType, level, x + 200, yPos);
+        this.renderWeaponUpgradeEffects(weapon, weaponType, level, x + 250, yPos);
+      }
+      
+      // Show "MAX" indicator for maxed weapons
+      if (!canUpgrade) {
+        this.ctx.fillStyle = '#00ff00';
+        this.ctx.font = 'bold 10px Courier New, monospace';
+        this.ctx.fillText('MAX', progressBarX + progressBarWidth + 5, yPos + 6);
+        this.ctx.font = '14px Courier New, monospace'; // Reset font
       }
     });
   }
@@ -307,6 +428,11 @@ export class UISystem implements System {
     this.scoringSystem = scoringSystem;
   }
 
+  // Score animation tracking
+  private lastScore: number = 0;
+  private scoreAnimationTimer: number = 0;
+  private readonly scoreAnimationDuration: number = 1000; // 1 second
+
   /**
    * Render score and level information
    */
@@ -315,11 +441,40 @@ export class UISystem implements System {
 
     const gameData = this.gameState.getData();
     
+    // Track score changes for animation
+    if (gameData.score !== this.lastScore) {
+      this.scoreAnimationTimer = this.scoreAnimationDuration;
+      this.lastScore = gameData.score;
+    }
+    
+    // Update animation timer
+    if (this.scoreAnimationTimer > 0) {
+      this.scoreAnimationTimer -= 16; // Approximate frame time
+    }
+    
     // Render score
     if (this.config.showScore) {
-      this.ctx.fillStyle = '#ffff00'; // Yellow for score
+      // Animate score color when it changes
+      let scoreColor = '#ffff00'; // Default yellow
+      if (this.scoreAnimationTimer > 0) {
+        const animationProgress = this.scoreAnimationTimer / this.scoreAnimationDuration;
+        const intensity = Math.sin(animationProgress * Math.PI * 4) * 0.5 + 0.5;
+        scoreColor = `rgb(255, ${Math.floor(255 * (1 - intensity * 0.5))}, 0)`;
+      }
+      
+      this.ctx.fillStyle = scoreColor;
       this.ctx.font = '18px Courier New, monospace';
+      
+      // Add glow effect for score animation
+      if (this.scoreAnimationTimer > 0) {
+        this.ctx.shadowColor = scoreColor;
+        this.ctx.shadowBlur = 10;
+      }
+      
       this.ctx.fillText(`Score: ${gameData.score.toLocaleString()}`, x, y);
+      
+      // Reset shadow
+      this.ctx.shadowBlur = 0;
     }
 
     // Render level and difficulty
@@ -401,6 +556,95 @@ export class UISystem implements System {
   }
 
   /**
+   * Render special weapon usage tracking and status
+   */
+  private renderSpecialWeaponStatus(player: Player, x: number, y: number): void {
+    const specialEffects = player.getSpecialEffects();
+    const effectTypes = ['SHIELD', 'TRACTOR_BEAM', 'SCREEN_CLEAR'];
+    
+    this.ctx.font = '12px Courier New, monospace';
+    this.ctx.fillStyle = '#cccccc';
+    this.ctx.fillText('Special Abilities:', x, y);
+    
+    effectTypes.forEach((effectType, index) => {
+      const yPos = y + 14 + (index * 14);
+      const isActive = player.isSpecialEffectActive(effectType as any);
+      const remainingDuration = player.getSpecialEffectRemainingDuration(effectType as any);
+      const remainingCooldown = player.getSpecialEffectRemainingCooldown(effectType as any);
+      const remainingUses = player.getSpecialEffectRemainingUses(effectType as any);
+      
+      // Color based on status
+      if (isActive) {
+        this.ctx.fillStyle = '#00ff00'; // Green for active
+      } else if (remainingCooldown > 0) {
+        this.ctx.fillStyle = '#ff8800'; // Orange for cooldown
+      } else {
+        this.ctx.fillStyle = '#ffffff'; // White for ready
+      }
+      
+      let statusText = effectType.replace('_', ' ');
+      
+      // Add status indicators
+      if (isActive) {
+        const durationSec = Math.ceil(remainingDuration / 1000);
+        statusText += ` [ACTIVE ${durationSec}s]`;
+      } else if (remainingCooldown > 0) {
+        const cooldownSec = Math.ceil(remainingCooldown / 1000);
+        statusText += ` [COOLDOWN ${cooldownSec}s]`;
+      } else {
+        statusText += ' [READY]';
+      }
+      
+      // Add uses if limited
+      if (remainingUses !== undefined) {
+        statusText += ` (${remainingUses} uses)`;
+      }
+      
+      this.ctx.fillText(statusText, x + 10, yPos);
+      
+      // Show cooldown/duration bar
+      if (isActive || remainingCooldown > 0) {
+        const barX = x + 200;
+        const barY = yPos - 8;
+        const barWidth = 80;
+        const barHeight = 6;
+        
+        // Background
+        this.ctx.fillStyle = '#333333';
+        this.ctx.fillRect(barX, barY, barWidth, barHeight);
+        
+        let progress = 0;
+        let fillColor = '#00ff00';
+        
+        if (isActive) {
+          // Show remaining duration
+          const effect = specialEffects.getActiveEffect(effectType as any);
+          if (effect) {
+            progress = remainingDuration / effect.duration;
+            fillColor = '#00ff00'; // Green for active duration
+          }
+        } else if (remainingCooldown > 0) {
+          // Show cooldown progress
+          const effect = specialEffects.getEffectConfig(effectType as any);
+          if (effect) {
+            progress = 1 - (remainingCooldown / effect.cooldown);
+            fillColor = '#ff8800'; // Orange for cooldown
+          }
+        }
+        
+        // Fill bar
+        this.ctx.fillStyle = fillColor;
+        this.ctx.fillRect(barX, barY, barWidth * progress, barHeight);
+        
+        // Border
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+      }
+    });
+  }
+
+  /**
    * Render level up notification
    */
   renderLevelUpNotification(level: number): void {
@@ -460,5 +704,78 @@ export class UISystem implements System {
     this.ctx.fillText(`${combo}x`, x + 90, y + 40);
     
     this.ctx.restore();
+  }
+
+  /**
+   * Render health/lives display for the player
+   */
+  private renderHealthDisplay(player: Player, x: number, y: number): void {
+    if (!this.gameState) return;
+
+    const gameData = this.gameState.getData();
+    
+    // Get player health if available
+    const healthComponent = player.getComponent('Health');
+    let healthText = '';
+    
+    if (healthComponent) {
+      const currentHealth = (healthComponent as any).getCurrentHealth();
+      const maxHealth = (healthComponent as any).getMaxHealth();
+      const healthPercent = Math.round((currentHealth / maxHealth) * 100);
+      
+      // Color based on health level
+      if (healthPercent > 75) {
+        this.ctx.fillStyle = '#00ff00'; // Green for high health
+      } else if (healthPercent > 50) {
+        this.ctx.fillStyle = '#ffff00'; // Yellow for medium health
+      } else if (healthPercent > 25) {
+        this.ctx.fillStyle = '#ff8800'; // Orange for low health
+      } else {
+        this.ctx.fillStyle = '#ff0000'; // Red for critical health
+      }
+      
+      healthText = `Health: ${currentHealth}/${maxHealth} (${healthPercent}%)`;
+    } else {
+      // Fallback to lives display
+      this.ctx.fillStyle = gameData.lives > 1 ? '#00ff00' : '#ff0000';
+      healthText = `Lives: ${gameData.lives}`;
+    }
+    
+    this.ctx.font = '16px Courier New, monospace';
+    this.ctx.fillText(healthText, x, y);
+    
+    // Render health bar if health component exists
+    if (healthComponent) {
+      const currentHealth = (healthComponent as any).getCurrentHealth();
+      const maxHealth = (healthComponent as any).getMaxHealth();
+      const healthPercent = currentHealth / maxHealth;
+      
+      const barWidth = 150;
+      const barHeight = 6;
+      const barX = x + 200;
+      const barY = y + 5;
+      
+      // Background
+      this.ctx.fillStyle = '#333333';
+      this.ctx.fillRect(barX, barY, barWidth, barHeight);
+      
+      // Health fill
+      if (healthPercent > 0.75) {
+        this.ctx.fillStyle = '#00ff00';
+      } else if (healthPercent > 0.5) {
+        this.ctx.fillStyle = '#ffff00';
+      } else if (healthPercent > 0.25) {
+        this.ctx.fillStyle = '#ff8800';
+      } else {
+        this.ctx.fillStyle = '#ff0000';
+      }
+      
+      this.ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+      
+      // Border
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+    }
   }
 }

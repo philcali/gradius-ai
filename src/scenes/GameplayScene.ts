@@ -6,7 +6,7 @@ import { Entity, System } from '../core/interfaces';
 import { Scene } from '../core/SceneManager';
 import { GameState } from '../core/GameState';
 import { Transform, Background, ParticleSystem, VisualEffects } from '../components/index';
-import { RenderSystem, ProjectileSystem, CollisionSystem, BackgroundSystem, ObstacleSpawner, PowerUpSpawner, UISystem, VisualEffectsSystem } from '../systems/index';
+import { RenderSystem, ProjectileSystem, CollisionSystem, BackgroundSystem, ObstacleSpawner, PowerUpSpawner, UISystem, VisualEffectsSystem, ScoringSystem } from '../systems/index';
 import { Player, Obstacle, Enemy, PowerUp } from '../entities/index';
 import { BaseProjectile } from '../entities/ProjectileTypes';
 import { InputManager } from '../core/InputManager';
@@ -257,14 +257,18 @@ export class GameplayScene implements Scene {
 
     this.systems.push(this.powerUpSpawner);
 
+    // Create a scoring system for how scoring works in the game
+    const scoringSystem = new ScoringSystem(this.gameState);
+    this.systems.push(scoringSystem);
+
     // Create and add the UI system (should render last, on top of everything)
     const uiSystem = new UISystem(this.ctx, this.canvasWidth, this.canvasHeight, {
       showAmmo: true,
       showWeaponInfo: true,
       showScore: true,
       showHealth: true,
-      showFPS: false
-    });
+      showFPS: false,
+    }, this.gameState, scoringSystem);
     this.systems.push(uiSystem);
 
     // Create background layers

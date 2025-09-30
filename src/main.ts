@@ -157,7 +157,7 @@ class Game {
       this.renderGame();
 
       // Render FPS counter
-      this.gameEngine.renderFPS();
+      // this.gameEngine.renderFPS();
 
       // Continue the loop if still running
       if (this.gameEngine.running) {
