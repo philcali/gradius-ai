@@ -36,6 +36,9 @@ export class Player extends Entity {
   // Power-up collection callback
   private powerUpCollectionCallback?: (powerUp: PowerUp, player: Player) => void;
 
+  // Visual effects callback
+  private visualEffectsCallback?: (effectType: string, position: { x: number; y: number }, data?: any) => void;
+
   // Score tracking for power-up collection
   private score: number = 0;
 
@@ -297,6 +300,17 @@ export class Player extends Entity {
     }
   }
 
+  private applyMuzzleFlash(): void {
+    // Create muzzle flash effect
+    if (this.visualEffectsCallback) {
+      const muzzlePosition = {
+        x: this.transform.position.x + this.shipWidth / 2,
+        y: this.transform.position.y
+      };
+      this.visualEffectsCallback('muzzle_flash', muzzlePosition, { direction: { x: 1, y: 0 } });
+    }
+  }
+
   /**
    * Fire the currently selected weapon
    */
@@ -307,6 +321,7 @@ export class Player extends Entity {
 
     if (this.weapon.fire()) {
       this.createProjectileForCurrentWeapon();
+      this.applyMuzzleFlash();
     }
   }
 
@@ -321,6 +336,7 @@ export class Player extends Entity {
 
     if (this.weapon.canFire() && this.weapon.fire()) {
       this.createProjectileForCurrentWeapon();
+      this.applyMuzzleFlash();  
     }
 
     // Switch back to original weapon
@@ -672,6 +688,12 @@ export class Player extends Entity {
     }
 
     console.log(`Player collided with entity ${event.otherEntityId}`);
+    
+    // Create damage flash effect
+    if (this.visualEffectsCallback) {
+      this.visualEffectsCallback('damage_flash', { x: 0, y: 0 });
+    }
+    
     // In a real game, this would handle damage, game over, etc.
   }
 
@@ -756,6 +778,13 @@ export class Player extends Entity {
    */
   setPowerUpCollectionCallback(callback: (powerUp: PowerUp, player: Player) => void): void {
     this.powerUpCollectionCallback = callback;
+  }
+
+  /**
+   * Set the visual effects callback
+   */
+  setVisualEffectsCallback(callback: (effectType: string, position: { x: number; y: number }, data?: any) => void): void {
+    this.visualEffectsCallback = callback;
   }
 
   /**

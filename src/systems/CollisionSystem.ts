@@ -29,6 +29,9 @@ export class CollisionSystem implements System {
   /** Debug rendering context */
   private debugCtx?: CanvasRenderingContext2D;
 
+  /** Visual effects callback */
+  private visualEffectsCallback?: (effectType: string, position: { x: number; y: number }, data?: any) => void;
+
   constructor() {
     this.previousTriggerContacts = new Map();
   }
@@ -38,6 +41,13 @@ export class CollisionSystem implements System {
    */
   setDebugContext(ctx: CanvasRenderingContext2D): void {
     this.debugCtx = ctx;
+  }
+
+  /**
+   * Set visual effects callback
+   */
+  setVisualEffectsCallback(callback: (effectType: string, position: { x: number; y: number }, data?: any) => void): void {
+    this.visualEffectsCallback = callback;
   }
 
   /**
@@ -245,6 +255,17 @@ export class CollisionSystem implements System {
         intersection
       };
       colliderB.onCollision(event);
+    }
+
+    // Create visual effects for collisions
+    if (this.visualEffectsCallback) {
+      const impactPosition = {
+        x: intersection.x + intersection.width / 2,
+        y: intersection.y + intersection.height / 2
+      };
+      
+      // Create impact effect for solid collisions
+      this.visualEffectsCallback('impact', impactPosition);
     }
   }
 

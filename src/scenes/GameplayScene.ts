@@ -5,8 +5,8 @@
 import { Entity, System } from '../core/interfaces';
 import { Scene } from '../core/SceneManager';
 import { GameState } from '../core/GameState';
-import { Transform, Background } from '../components/index';
-import { RenderSystem, ProjectileSystem, CollisionSystem, BackgroundSystem, ObstacleSpawner, PowerUpSpawner, UISystem } from '../systems/index';
+import { Transform, Background, ParticleSystem, VisualEffects } from '../components/index';
+import { RenderSystem, ProjectileSystem, CollisionSystem, BackgroundSystem, ObstacleSpawner, PowerUpSpawner, UISystem, VisualEffectsSystem } from '../systems/index';
 import { Player, Obstacle, Enemy, PowerUp } from '../entities/index';
 import { BaseProjectile } from '../entities/ProjectileTypes';
 import { InputManager } from '../core/InputManager';
@@ -26,6 +26,7 @@ export class GameplayScene implements Scene {
   private collisionSystem: CollisionSystem | null = null;
   private obstacleSpawner: ObstacleSpawner | null = null;
   private powerUpSpawner: PowerUpSpawner | null = null;
+  private visualEffectsSystem: VisualEffectsSystem | null = null;
 
   constructor(gameState: GameState, ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number, inputManager: InputManager) {
     this.gameState = gameState;
@@ -60,6 +61,19 @@ export class GameplayScene implements Scene {
 
     // Check for game over conditions
     if (this.player && !this.player.active) {
+      // Create player destruction effect
+      if (this.visualEffectsSystem) {
+        const playerTransform = this.player.getComponent<Transform>('transform');
+        if (playerTransform) {
+          const explosionPosition = {
+            x: playerTransform.position.x + 16, // Half ship width
+            y: playerTransform.position.y + 16  // Half ship height
+          };
+          this.visualEffectsSystem.createExplosion(this.entities, explosionPosition, 1.5);
+          this.visualEffectsSystem.createFadeToBlack(this.entities, 1000);
+        }
+      }
+
       // Player was destroyed
       if (this.gameState.loseLife()) {
         // Game over
@@ -68,6 +82,12 @@ export class GameplayScene implements Scene {
         // Respawn player
         this.respawnPlayer();
       }
+    }
+  }
+
+  render(_ctx: CanvasRenderingContext2D): void {
+    if (this.visualEffectsSystem) {
+      this.visualEffectsSystem.render(this.entities);
     }
   }
 
@@ -103,11 +123,38 @@ export class GameplayScene implements Scene {
       console.log(`Power-up collected! Type: ${powerUp.getType()}, Score: ${this.gameState.getData().score}`);
     });
 
+    // Set up visual effects callback
+    this.player.setVisualEffectsCallback((effectType: string, position: { x: number; y: number }, data?: any) => {
+      if (this.visualEffectsSystem) {
+        switch (effectType) {
+          case 'muzzle_flash':
+            this.visualEffectsSystem.createMuzzleFlash(this.entities, position, data?.direction || { x: 1, y: 0 });
+            break;
+          case 'damage_flash':
+            this.visualEffectsSystem.createDamageFlash(this.entities);
+            break;
+          case 'explosion':
+            this.visualEffectsSystem.createExplosion(this.entities, position, data?.intensity || 1);
+            break;
+          case 'impact':
+            this.visualEffectsSystem.createImpact(this.entities, position);
+            break;
+        }
+      }
+    });
+
     this.entities.push(this.player);
+
+    // Create global visual effects entities
+    this.createVisualEffectsEntities();
 
     // Create and add the background system (first, so it renders behind everything)
     const backgroundSystem = new BackgroundSystem(this.ctx, this.canvasWidth, this.canvasHeight);
     this.systems.push(backgroundSystem);
+
+    // Create and add the visual effects system (before render system)
+    this.visualEffectsSystem = new VisualEffectsSystem(this.ctx, this.canvasWidth, this.canvasHeight);
+    this.systems.push(this.visualEffectsSystem);
 
     // Create and add the render system
     const renderSystem = new RenderSystem(this.ctx, this.canvasWidth, this.canvasHeight);
@@ -121,6 +168,21 @@ export class GameplayScene implements Scene {
     this.collisionSystem = new CollisionSystem();
     this.collisionSystem.setDebugContext(this.ctx);
     this.collisionSystem.setDebugRender(false); // Disable debug rendering for gameplay
+    
+    // Set up collision visual effects callback
+    this.collisionSystem.setVisualEffectsCallback((effectType: string, position: { x: number; y: number }, data?: any) => {
+      if (this.visualEffectsSystem) {
+        switch (effectType) {
+          case 'impact':
+            this.visualEffectsSystem.createImpact(this.entities, position);
+            break;
+          case 'explosion':
+            this.visualEffectsSystem.createExplosion(this.entities, position, data?.intensity || 1);
+            break;
+        }
+      }
+    });
+    
     this.systems.push(this.collisionSystem);
 
     // Create and add the obstacle spawner system
@@ -133,10 +195,38 @@ export class GameplayScene implements Scene {
 
     // Set up spawner callbacks
     this.obstacleSpawner.setObstacleSpawnCallback((obstacle: Obstacle) => {
+      // Set up visual effects callback for obstacle
+      obstacle.setVisualEffectsCallback((effectType: string, position: { x: number; y: number }, data?: any) => {
+        if (this.visualEffectsSystem) {
+          switch (effectType) {
+            case 'explosion':
+              this.visualEffectsSystem.createExplosion(this.entities, position, data?.intensity || 1);
+              break;
+            case 'impact':
+              this.visualEffectsSystem.createImpact(this.entities, position);
+              break;
+          }
+        }
+      });
+      
       this.entities.push(obstacle);
     });
 
     this.obstacleSpawner.setEnemySpawnCallback((enemy: Enemy) => {
+      // Set up visual effects callback for enemy
+      enemy.setVisualEffectsCallback((effectType: string, position: { x: number; y: number }, data?: any) => {
+        if (this.visualEffectsSystem) {
+          switch (effectType) {
+            case 'explosion':
+              this.visualEffectsSystem.createExplosion(this.entities, position, data?.intensity || 1);
+              break;
+            case 'impact':
+              this.visualEffectsSystem.createImpact(this.entities, position);
+              break;
+          }
+        }
+      });
+      
       this.entities.push(enemy);
     });
 
@@ -189,6 +279,18 @@ export class GameplayScene implements Scene {
         system.init();
       }
     }
+  }
+
+  private createVisualEffectsEntities(): void {
+    // Create global particle system entity
+    const particleEntity = this.createEntity('global-particle-system');
+    particleEntity.addComponent(new ParticleSystem());
+    this.entities.push(particleEntity);
+
+    // Create global visual effects entity
+    const visualEffectsEntity = this.createEntity('global-visual-effects');
+    visualEffectsEntity.addComponent(new VisualEffects());
+    this.entities.push(visualEffectsEntity);
   }
 
   private createBackgroundLayers(): void {
@@ -306,6 +408,11 @@ export class GameplayScene implements Scene {
       // Give brief invincibility
       // TODO: Implement invincibility frames
       
+      // Create fade from black effect for respawn
+      if (this.visualEffectsSystem) {
+        this.visualEffectsSystem.createFadeFromBlack(this.entities, 500);
+      }
+      
       console.log('Player respawned');
     }
   }
@@ -330,6 +437,7 @@ export class GameplayScene implements Scene {
     this.collisionSystem = null;
     this.obstacleSpawner = null;
     this.powerUpSpawner = null;
+    this.visualEffectsSystem = null;
   }
 
   destroy(): void {

@@ -37,6 +37,9 @@ export class Obstacle extends Entity {
   private readonly baseScrollSpeed: number = 80; // Base background scroll speed
   private readonly moveSpeed: number;
 
+  // Visual effects callback
+  private visualEffectsCallback?: (effectType: string, position: { x: number; y: number }, data?: any) => void;
+
   constructor(
     x: number,
     y: number,
@@ -292,8 +295,15 @@ export class Obstacle extends Entity {
    * Create destruction effect when obstacle is destroyed
    */
   private createDestructionEffect(): void {
-    // Placeholder for destruction effect
-    // In a full implementation, this would create particle effects, play sounds, etc.
+    // Create explosion effect
+    if (this.visualEffectsCallback) {
+      const explosionPosition = {
+        x: this.transform.position.x + this.config.width / 2,
+        y: this.transform.position.y + this.config.height / 2
+      };
+      this.visualEffectsCallback('explosion', explosionPosition, { intensity: 0.8 });
+    }
+    
     console.log(`Creating destruction effect for obstacle ${this.id}`);
   }
 
@@ -302,6 +312,13 @@ export class Obstacle extends Entity {
    */
   getHealth(): number {
     return this.health?.getCurrentHealth() || 0;
+  }
+
+  /**
+   * Set visual effects callback
+   */
+  setVisualEffectsCallback(callback: (effectType: string, position: { x: number; y: number }, data?: any) => void): void {
+    this.visualEffectsCallback = callback;
   }
 
   /**

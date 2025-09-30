@@ -48,6 +48,9 @@ export class Enemy extends Entity {
   // Movement properties
   private readonly baseScrollSpeed: number = 80; // Base background scroll speed
   private readonly startY: number; // Initial Y position for pattern calculations
+
+  // Visual effects callback
+  private visualEffectsCallback?: (effectType: string, position: { x: number; y: number }, data?: any) => void;
   private readonly startTime: number; // Time when enemy was created
   private movementTime: number = 0; // Time since movement started
 
@@ -272,6 +275,15 @@ export class Enemy extends Entity {
     this.health = Math.max(0, this.health - damage);
     
     if (this.health <= 0) {
+      // Create explosion effect before destruction
+      if (this.visualEffectsCallback) {
+        const explosionPosition = {
+          x: this.transform.position.x + this.config.width / 2,
+          y: this.transform.position.y + this.config.height / 2
+        };
+        this.visualEffectsCallback('explosion', explosionPosition, { intensity: 1 });
+      }
+
       // Trigger scoring event before destruction
       this.triggerScoringEvent();
       this.destroy();
@@ -306,6 +318,13 @@ export class Enemy extends Entity {
    */
   getMaxHealth(): number {
     return this.maxHealth;
+  }
+
+  /**
+   * Set visual effects callback
+   */
+  setVisualEffectsCallback(callback: (effectType: string, position: { x: number; y: number }, data?: any) => void): void {
+    this.visualEffectsCallback = callback;
   }
 
   /**
