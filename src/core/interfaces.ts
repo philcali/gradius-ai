@@ -103,6 +103,8 @@ export interface GameState {
  */
 export interface InputState {
   keys: Set<string>;
+  justPressedKeys: Set<string>;
+  justReleasedKeys: Set<string>;
   mousePosition: Vector2D;
   mouseButtons: Set<number>;
 }

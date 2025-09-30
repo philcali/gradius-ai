@@ -2,7 +2,7 @@
  * SceneManager handles different game scenes and their transitions
  */
 
-import { Entity, System } from './interfaces';
+import { Entity, InputState, System } from './interfaces';
 import { GameState, GameScene } from './GameState';
 
 export interface Scene {
@@ -23,7 +23,7 @@ export interface Scene {
   render?(ctx: CanvasRenderingContext2D): void;
   
   /** Handle input events */
-  handleInput?(inputState: any): void;
+  handleInput?(inputState: InputState): void;
   
   /** Clean up scene resources */
   destroy?(): void;
@@ -135,7 +135,7 @@ export class SceneManager {
   /**
    * Handle input for current scene
    */
-  handleInput(inputState: any): void {
+  handleInput(inputState: InputState): void {
     if (this.currentScene && this.currentScene.handleInput) {
       this.currentScene.handleInput(inputState);
     }

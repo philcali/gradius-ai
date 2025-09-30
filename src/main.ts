@@ -156,6 +156,9 @@ class Game {
       // Render game through scene manager
       this.renderGame();
 
+      // Clear frame-specific input state (just pressed/released keys)
+      this.inputManager.clearFrameInput();
+
       // Render FPS counter
       // this.gameEngine.renderFPS();
 

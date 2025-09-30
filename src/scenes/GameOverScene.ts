@@ -2,7 +2,7 @@
  * GameOverScene handles the game over state and restart functionality
  */
 
-import { Entity, System } from '../core/interfaces';
+import { Entity, InputState, System } from '../core/interfaces';
 import { Scene } from '../core/SceneManager';
 import { GameState } from '../core/GameState';
 
@@ -138,34 +138,27 @@ export class GameOverScene implements Scene {
     ctx.restore();
   }
 
-  handleInput(inputState: any): void {
-    if (inputState.keys) {
+  handleInput(inputState: InputState): void {
+    if (inputState.justPressedKeys) {
       // Quick restart
-      if (inputState.keys.has('keyr')) {
+      if (inputState.justPressedKeys.has('keyr')) {
         this.gameState.restartGame();
-        inputState.keys.delete('keyr');
         return;
       }
 
       // Navigate up
-      if (inputState.keys.has('arrowup') || inputState.keys.has('keyw')) {
+      if (inputState.justPressedKeys.has('arrowup') || inputState.justPressedKeys.has('keyw')) {
         this.selectedOption = (this.selectedOption - 1 + this.gameOverOptions.length) % this.gameOverOptions.length;
-        inputState.keys.delete('arrowup');
-        inputState.keys.delete('keyw');
       }
       
       // Navigate down
-      if (inputState.keys.has('arrowdown') || inputState.keys.has('keys')) {
+      if (inputState.justPressedKeys.has('arrowdown') || inputState.justPressedKeys.has('keys')) {
         this.selectedOption = (this.selectedOption + 1) % this.gameOverOptions.length;
-        inputState.keys.delete('arrowdown');
-        inputState.keys.delete('keys');
       }
       
       // Select option
-      if (inputState.keys.has('enter') || inputState.keys.has('space')) {
+      if (inputState.justPressedKeys.has('enter') || inputState.justPressedKeys.has('space')) {
         this.selectCurrentOption();
-        inputState.keys.delete('enter');
-        inputState.keys.delete('space');
       }
     }
   }

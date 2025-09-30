@@ -2,7 +2,7 @@
  * MenuScene handles the main menu interface
  */
 
-import { Entity, System } from '../core/interfaces';
+import { Entity, InputState, System } from '../core/interfaces';
 import { Scene } from '../core/SceneManager';
 import { GameState } from '../core/GameState';
 
@@ -81,35 +81,27 @@ export class MenuScene implements Scene {
     ctx.restore();
   }
 
-  handleInput(inputState: any): void {
+  handleInput(inputState: InputState): void {
     // Handle keyboard input for menu navigation
-    if (inputState.keys) {
+    if (inputState.justPressedKeys) {
       // Navigate up
-      if (inputState.keys.has('arrowup') || inputState.keys.has('keyw')) {
+      if (inputState.justPressedKeys.has('arrowup') || inputState.justPressedKeys.has('keyw')) {
         this.selectedOption = (this.selectedOption - 1 + this.menuOptions.length) % this.menuOptions.length;
-        inputState.keys.delete('arrowup');
-        inputState.keys.delete('keyw');
       }
       
       // Navigate down
-      if (inputState.keys.has('arrowdown') || inputState.keys.has('keys')) {
+      if (inputState.justPressedKeys.has('arrowdown') || inputState.justPressedKeys.has('keys')) {
         this.selectedOption = (this.selectedOption + 1) % this.menuOptions.length;
-        inputState.keys.delete('arrowdown');
-        inputState.keys.delete('keys');
       }
       
       // Select option
-      if (inputState.keys.has('enter') || inputState.keys.has('space')) {
+      if (inputState.justPressedKeys.has('enter') || inputState.justPressedKeys.has('space')) {
         this.selectCurrentOption();
-        inputState.keys.delete('enter');
-        inputState.keys.delete('space');
       }
       
       // Quick start with any other key
-      if (inputState.keys.has('keyg') || inputState.keys.has('keyp')) {
+      if (inputState.justPressedKeys.has('keyg') || inputState.justPressedKeys.has('keyp')) {
         this.gameState.startNewGame();
-        inputState.keys.delete('keyg');
-        inputState.keys.delete('keyp');
       }
     }
   }

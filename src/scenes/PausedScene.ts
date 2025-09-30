@@ -2,7 +2,7 @@
  * PausedScene handles the pause menu and state preservation
  */
 
-import { Entity, System } from '../core/interfaces';
+import { Entity, InputState, System } from '../core/interfaces';
 import { Scene } from '../core/SceneManager';
 import { GameState } from '../core/GameState';
 
@@ -100,35 +100,27 @@ export class PausedScene implements Scene {
     ctx.restore();
   }
 
-  handleInput(inputState: any): void {
-    if (inputState.keys) {
+  handleInput(inputState: InputState): void {
+    if (inputState.justPressedKeys) {
       // Quick resume
-      if (inputState.keys.has('keyp') || inputState.keys.has('escape')) {
+      if (inputState.justPressedKeys.has('keyp') || inputState.justPressedKeys.has('escape')) {
         this.gameState.resumeGame();
-        inputState.keys.delete('keyp');
-        inputState.keys.delete('escape');
         return;
       }
 
       // Navigate up
-      if (inputState.keys.has('arrowup') || inputState.keys.has('keyw')) {
+      if (inputState.justPressedKeys.has('arrowup') || inputState.justPressedKeys.has('keyw')) {
         this.selectedOption = (this.selectedOption - 1 + this.pauseOptions.length) % this.pauseOptions.length;
-        inputState.keys.delete('arrowup');
-        inputState.keys.delete('keyw');
       }
       
       // Navigate down
-      if (inputState.keys.has('arrowdown') || inputState.keys.has('keys')) {
+      if (inputState.justPressedKeys.has('arrowdown') || inputState.justPressedKeys.has('keys')) {
         this.selectedOption = (this.selectedOption + 1) % this.pauseOptions.length;
-        inputState.keys.delete('arrowdown');
-        inputState.keys.delete('keys');
       }
       
       // Select option
-      if (inputState.keys.has('enter') || inputState.keys.has('space')) {
+      if (inputState.justPressedKeys.has('enter') || inputState.justPressedKeys.has('space')) {
         this.selectCurrentOption();
-        inputState.keys.delete('enter');
-        inputState.keys.delete('space');
       }
     }
   }

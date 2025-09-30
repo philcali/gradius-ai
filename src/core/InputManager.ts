@@ -11,11 +11,13 @@ export class InputManager {
 
   private keyDownCallbacks: Map<string, () => void> = new Map();
   private keyUpCallbacks: Map<string, () => void> = new Map();
-
+  
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.inputState = {
       keys: new Set<string>(),
+      justReleasedKeys: new Set<string>(),
+      justPressedKeys: new Set<string>(),
       mousePosition: { x: 0, y: 0 },
       mouseButtons: new Set<number>()
     };
@@ -50,8 +52,16 @@ export class InputManager {
   private handleKeyDown(event: KeyboardEvent): void {
     const key = event.code.toLowerCase();
     
+    // Check if this is a new key press (not a repeat)
+    const wasPressed = this.inputState.keys.has(key);
+    
     // Add key to active keys set
     this.inputState.keys.add(key);
+
+    // If this is a new press (not a repeat), add to just pressed set
+    if (!wasPressed) {
+      this.inputState.justPressedKeys.add(key);
+    }
 
     // Call keydown callback if registered
     const callback = this.keyDownCallbacks.get(key);
@@ -73,6 +83,9 @@ export class InputManager {
     
     // Remove key from active keys set
     this.inputState.keys.delete(key);
+
+    // Add to just released set
+    this.inputState.justReleasedKeys.add(key);
 
     // Call keyup callback if registered
     const callback = this.keyUpCallbacks.get(key);
@@ -119,10 +132,31 @@ export class InputManager {
   }
 
   /**
+   * Check if a key was just pressed this frame (single press detection)
+   */
+  isKeyJustPressed(key: string): boolean {
+    return this.inputState.justPressedKeys.has(key.toLowerCase());
+  }
+
+  /**
+   * Check if a key was just released this frame
+   */
+  isKeyJustReleased(key: string): boolean {
+    return this.inputState.justReleasedKeys.has(key.toLowerCase());
+  }
+
+  /**
    * Check if any of the provided keys are pressed
    */
   isAnyKeyPressed(keys: string[]): boolean {
     return keys.some(key => this.isKeyPressed(key));
+  }
+
+  /**
+   * Check if any of the provided keys were just pressed this frame
+   */
+  isAnyKeyJustPressed(keys: string[]): boolean {
+    return keys.some(key => this.isKeyJustPressed(key));
   }
 
   /**
@@ -179,6 +213,8 @@ export class InputManager {
   getInputState(): Readonly<InputState> {
     return {
       keys: new Set(this.inputState.keys),
+      justPressedKeys: new Set(this.inputState.justPressedKeys),
+      justReleasedKeys: new Set(this.inputState.justReleasedKeys),
       mousePosition: { ...this.inputState.mousePosition },
       mouseButtons: new Set(this.inputState.mouseButtons)
     };
@@ -189,7 +225,18 @@ export class InputManager {
    */
   clearInput(): void {
     this.inputState.keys.clear();
+    this.inputState.justPressedKeys.clear(),
+    this.inputState.justReleasedKeys.clear(),
     this.inputState.mouseButtons.clear();
+  }
+
+  /**
+   * Clear frame-specific input state (call at end of each frame)
+   * This clears the "just pressed" and "just released" states
+   */
+  clearFrameInput(): void {
+    this.inputState.justPressedKeys.clear();
+    this.inputState.justReleasedKeys.clear();
   }
 
   /**

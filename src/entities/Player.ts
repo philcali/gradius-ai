@@ -257,45 +257,45 @@ export class Player extends Entity {
    * Process weapon input for firing projectiles
    */
   private processWeaponInput(_deltaTime: number): void {
-    // Primary fire (beam weapon) - Space key
+    // Primary fire (beam weapon) - Space key (hold to fire automatically)
     if (this.inputManager.isKeyPressed('space')) {
       this.fireCurrentWeapon();
     }
 
-    // Secondary fire (missile weapon) - X key
+    // Secondary fire (missile weapon) - X key (hold to fire automatically)
     if (this.inputManager.isKeyPressed('keyx')) {
       this.fireMissileWeapon();
     }
 
-    // Special weapon activation - Z key
-    if (this.inputManager.isKeyPressed('keyz')) {
+    // Special weapon activation - Z key (single press only)
+    if (this.inputManager.isKeyJustPressed('keyz')) {
       this.activateSpecialWeapon();
     }
 
-    // Weapon switching - Tab key
-    if (this.inputManager.isKeyPressed('tab')) {
+    // Weapon switching - Tab key (single press only)
+    if (this.inputManager.isKeyJustPressed('tab')) {
       this.weapon.cycleWeapon();
     }
 
-    // Weapon selection keys
-    if (this.inputManager.isKeyPressed('digit1')) {
+    // Weapon selection keys (single press only)
+    if (this.inputManager.isKeyJustPressed('digit1')) {
       this.weapon.switchWeapon(WeaponType.BEAM);
     }
-    if (this.inputManager.isKeyPressed('digit2')) {
+    if (this.inputManager.isKeyJustPressed('digit2')) {
       this.weapon.switchWeapon(WeaponType.MISSILE);
     }
-    if (this.inputManager.isKeyPressed('digit3')) {
+    if (this.inputManager.isKeyJustPressed('digit3')) {
       this.weapon.switchWeapon(WeaponType.SPECIAL);
     }
 
-    // Individual special effect activation keys
-    if (this.inputManager.isKeyPressed('keyq')) {
+    // Individual special effect activation keys (single press only)
+    if (this.inputManager.isKeyJustPressed('keyq')) {
       this.activateSpecificEffect(SpecialEffectType.SHIELD);
     }
-    if (this.inputManager.isKeyPressed('keye')) {
+    if (this.inputManager.isKeyJustPressed('keye')) {
       this.activateSpecificEffect(SpecialEffectType.TRACTOR_BEAM);
     }
-    if (this.inputManager.isKeyPressed('keyr')) {
+    if (this.inputManager.isKeyJustPressed('keyr')) {
       this.activateSpecificEffect(SpecialEffectType.SCREEN_CLEAR);
     }
   }
@@ -336,7 +336,7 @@ export class Player extends Entity {
 
     if (this.weapon.canFire() && this.weapon.fire()) {
       this.createProjectileForCurrentWeapon();
-      this.applyMuzzleFlash();  
+      this.applyMuzzleFlash();
     }
 
     // Switch back to original weapon
@@ -435,7 +435,7 @@ export class Player extends Entity {
     this.collider.setCollisionCallback((event) => {
       if (this.specialEffects.isEffectActive(SpecialEffectType.SHIELD)) {
         const effectData = activeEffect.data;
-        
+
         // Complete invulnerability or damage reduction
         if (effectData.invulnerable) {
           console.log(`Shield blocked collision with entity ${event.otherEntityId}`);
@@ -468,20 +468,20 @@ export class Player extends Entity {
 
     const effectData = activeEffect.data;
     console.log(`Tractor beam activated with range ${effectData.range} and strength ${effectData.strength}`);
-    
+
     // In a full implementation, this would:
     // 1. Find all power-ups within range
     // 2. Apply attractive force toward player
     // 3. At level 3+, also affect enemies
-    
+
     // For now, we'll create a visual projectile to represent the beam
     if (this.projectileCreationCallback) {
       const spawnX = this.transform.position.x + this.shipWidth / 2;
       const spawnY = this.transform.position.y;
-      
+
       const config = this.weapon.getCurrentWeaponConfig();
       const upgradeEffects = this.weapon.getUpgradeEffects(WeaponType.SPECIAL, config.currentLevel);
-      
+
       const tractorProjectile = createProjectile(
         WeaponType.SPECIAL,
         spawnX,
@@ -492,7 +492,7 @@ export class Player extends Entity {
         upgradeEffects,
         SpecialWeaponType.TRACTOR_BEAM
       );
-      
+
       this.projectileCreationCallback(tractorProjectile);
     }
   }
@@ -506,20 +506,20 @@ export class Player extends Entity {
 
     const effectData = activeEffect.data;
     console.log(`Screen clear activated with damage ${effectData.damage} and range ${effectData.range}`);
-    
+
     // In a full implementation, this would:
     // 1. Find all enemies and destructible obstacles on screen
     // 2. Apply massive damage to destroy them
     // 3. Award bonus score at level 3+
-    
+
     // For now, we'll create a special projectile to handle the effect
     if (this.projectileCreationCallback) {
       const spawnX = this.canvasWidth / 2; // Center of screen
       const spawnY = this.canvasHeight / 2;
-      
+
       const config = this.weapon.getCurrentWeaponConfig();
       const upgradeEffects = this.weapon.getUpgradeEffects(WeaponType.SPECIAL, config.currentLevel);
-      
+
       const clearProjectile = createProjectile(
         WeaponType.SPECIAL,
         spawnX,
@@ -530,7 +530,7 @@ export class Player extends Entity {
         upgradeEffects,
         SpecialWeaponType.SCREEN_CLEAR
       );
-      
+
       this.projectileCreationCallback(clearProjectile);
     }
   }
@@ -688,12 +688,12 @@ export class Player extends Entity {
     }
 
     console.log(`Player collided with entity ${event.otherEntityId}`);
-    
+
     // Create damage flash effect
     if (this.visualEffectsCallback) {
       this.visualEffectsCallback('damage_flash', { x: 0, y: 0 });
     }
-    
+
     // In a real game, this would handle damage, game over, etc.
   }
 
@@ -768,7 +768,7 @@ export class Player extends Entity {
     // For now, we'll just log the collection
     const position = powerUp.getPosition();
     console.log(`Power-up collected at position (${position.x}, ${position.y}) - Score: +${powerUp.getScoreBonus()}`);
-    
+
     // TODO: Add particle effect system for visual feedback
     // TODO: Add sound effect for collection
   }
