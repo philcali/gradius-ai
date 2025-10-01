@@ -12,12 +12,19 @@ import { BaseProjectile } from './ProjectileTypes';
 // Mock InputManager
 class MockInputManager {
   private pressedKeys: Set<string> = new Set();
+  private justPressedKeys: Set<string> = new Set();
+  private justReleasedKeys: Set<string> = new Set();
 
   setKeyPressed(key: string, pressed: boolean): void {
+    const keyLower = key.toLowerCase();
     if (pressed) {
-      this.pressedKeys.add(key.toLowerCase());
+      if (!this.pressedKeys.has(keyLower)) {
+        this.justPressedKeys.add(keyLower);
+      }
+      this.pressedKeys.add(keyLower);
     } else {
-      this.pressedKeys.delete(key.toLowerCase());
+      this.pressedKeys.delete(keyLower);
+      this.justReleasedKeys.add(keyLower);
     }
   }
 
@@ -25,8 +32,27 @@ class MockInputManager {
     return this.pressedKeys.has(key.toLowerCase());
   }
 
+  isKeyJustPressed(key: string): boolean {
+    return this.justPressedKeys.has(key.toLowerCase());
+  }
+
+  isKeyJustReleased(key: string): boolean {
+    return this.justReleasedKeys.has(key.toLowerCase());
+  }
+
+  isAnyKeyJustPressed(keys: string[]): boolean {
+    return keys.some(key => this.isKeyJustPressed(key));
+  }
+
+  clearFrameInput(): void {
+    this.justPressedKeys.clear();
+    this.justReleasedKeys.clear();
+  }
+
   clearAllKeys(): void {
     this.pressedKeys.clear();
+    this.justPressedKeys.clear();
+    this.justReleasedKeys.clear();
   }
 
   // Mock other required methods
@@ -49,6 +75,13 @@ describe('Player Special Weapon System', () => {
 
   const canvasWidth = 800;
   const canvasHeight = 600;
+
+  // Helper function to simulate key press and update
+  const pressKeyAndUpdate = (key: string, deltaTime: number = 16) => {
+    mockInputManager.setKeyPressed(key, true);
+    player.update(deltaTime);
+    mockInputManager.clearFrameInput(); // Clear just pressed state
+  };
 
   beforeEach(() => {
     // Create mock canvas
@@ -122,31 +155,27 @@ describe('Player Special Weapon System', () => {
 
   describe('Special Weapon Input Handling', () => {
     it('should activate shield effect with Z key', () => {
-      mockInputManager.setKeyPressed('keyz', true);
-      player.update(16); // Simulate frame update
+      pressKeyAndUpdate('keyz');
 
       expect(player.isSpecialEffectActive(SpecialEffectType.SHIELD)).toBe(true);
       expect(player.getSpecialEffectRemainingUses(SpecialEffectType.SHIELD)).toBe(2);
     });
 
     it('should activate shield effect with Q key', () => {
-      mockInputManager.setKeyPressed('keyq', true);
-      player.update(16);
+      pressKeyAndUpdate('keyq');
 
       expect(player.isSpecialEffectActive(SpecialEffectType.SHIELD)).toBe(true);
     });
 
     it('should activate tractor beam effect with E key', () => {
-      mockInputManager.setKeyPressed('keye', true);
-      player.update(16);
+      pressKeyAndUpdate('keye');
 
       expect(player.isSpecialEffectActive(SpecialEffectType.TRACTOR_BEAM)).toBe(true);
       expect(createdProjectiles).toHaveLength(1);
     });
 
     it('should activate screen clear effect with R key', () => {
-      mockInputManager.setKeyPressed('keyr', true);
-      player.update(16);
+      pressKeyAndUpdate('keyr');
 
       expect(player.isSpecialEffectActive(SpecialEffectType.SCREEN_CLEAR)).toBe(true);
       expect(createdProjectiles).toHaveLength(1);
@@ -154,15 +183,13 @@ describe('Player Special Weapon System', () => {
 
     it('should not activate effect if already active', () => {
       // Activate shield first
-      mockInputManager.setKeyPressed('keyq', true);
-      player.update(16);
+      pressKeyAndUpdate('keyq');
       mockInputManager.clearAllKeys();
 
       const initialUses = player.getSpecialEffectRemainingUses(SpecialEffectType.SHIELD);
 
       // Try to activate again
-      mockInputManager.setKeyPressed('keyq', true);
-      player.update(16);
+      pressKeyAndUpdate('keyq');
 
       expect(player.getSpecialEffectRemainingUses(SpecialEffectType.SHIELD)).toBe(initialUses);
     });

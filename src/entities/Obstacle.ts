@@ -84,11 +84,12 @@ export class Obstacle extends Entity {
     if (this.config.destructible) {
       const healthConfig: HealthConfig = {
         maxHealth: config.health || 1,
-        invulnerabilityDuration: 0.1 // Brief invulnerability to prevent multiple hits from same projectile
+        currentHealth: config.health || 1,
+        invulnerabilityDuration: 100 // Brief invulnerability to prevent multiple hits from same projectile
       };
       
       this.health = new Health(healthConfig);
-      this.health.setDeathCallback(() => {
+      this.health.setOnDeathCallback(() => {
         this.onDestroyed();
       });
       
@@ -200,6 +201,11 @@ export class Obstacle extends Entity {
   update(deltaTime: number): void {
     if (!this.active) return;
 
+    // Update health component if present
+    if (this.health) {
+      this.health.update(deltaTime);
+    }
+
     // Check if obstacle has moved off screen
     if (this.transform.position.x + this.config.width < 0) {
       this.destroy();
@@ -235,7 +241,7 @@ export class Obstacle extends Entity {
 
     // Deal damage to the obstacle
     const damage = 1; // Default projectile damage - could be passed from projectile entity
-    const wasDestroyed = this.health.takeDamage(damage, projectileId);
+    const wasDestroyed = this.health.takeDamage(damage);
 
     if (wasDestroyed) {
       console.log(`Obstacle ${this.id} was destroyed by projectile ${projectileId}`);
@@ -273,12 +279,12 @@ export class Obstacle extends Entity {
   /**
    * Take damage (for destructible obstacles)
    */
-  takeDamage(damage: number, sourceEntityId?: string): boolean {
+  takeDamage(damage: number, _sourceEntityId?: string): boolean {
     if (!this.config.destructible || !this.health) {
       return false; // Indestructible obstacles don't take damage
     }
 
-    return this.health.takeDamage(damage, sourceEntityId);
+    return this.health.takeDamage(damage);
   }
 
   /**

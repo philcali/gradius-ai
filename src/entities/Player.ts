@@ -9,6 +9,7 @@ import { Sprite } from '../components/Sprite';
 import { Collider, CollisionLayers, CollisionMasks } from '../components/Collider';
 import { Weapon, WeaponType } from '../components/Weapon';
 import { SpecialEffects, SpecialEffectType } from '../components/SpecialEffects';
+import { Health } from '../components/Health';
 import { InputManager } from '../core/InputManager';
 import { createProjectile, BaseProjectile, SpecialWeaponType } from './ProjectileTypes';
 import { PowerUp, PowerUpType } from './PowerUp';
@@ -19,6 +20,7 @@ export class Player extends Entity {
   private collider: Collider;
   private weapon: Weapon;
   private specialEffects: SpecialEffects;
+  private health: Health;
   private inputManager: InputManager;
 
   // Movement properties
@@ -38,6 +40,9 @@ export class Player extends Entity {
 
   // Visual effects callback
   private visualEffectsCallback?: (effectType: string, position: { x: number; y: number }, data?: any) => void;
+
+  // Death callback for game over handling
+  private deathCallback?: () => void;
 
   // Score tracking for power-up collection
   private score: number = 0;
@@ -67,6 +72,40 @@ export class Player extends Entity {
     // Create and add SpecialEffects component
     this.specialEffects = new SpecialEffects();
     this.addComponent(this.specialEffects);
+
+    // Create and add Health component
+    this.health = new Health({
+      maxHealth: 3, // Player starts with 3 health points
+      currentHealth: 3,
+      invulnerabilityDuration: 1500, // 1.5 seconds of invulnerability after taking damage
+      regeneration: {
+        enabled: false, // No health regeneration by default
+        rate: 0,
+        delay: 0
+      }
+    });
+
+    // Set up health callbacks
+    this.health.setOnDamageCallback((damage, currentHealth, maxHealth) => {
+      console.log(`Player took ${damage} damage! Health: ${currentHealth}/${maxHealth}`);
+      
+      // Create damage flash effect
+      if (this.visualEffectsCallback) {
+        this.visualEffectsCallback('damage_flash', { x: 0, y: 0 });
+      }
+    });
+
+    this.health.setOnDeathCallback(() => {
+      console.log('Player died!');
+      this.active = false; // Deactivate the player entity
+      
+      // Trigger death callback for game over handling
+      if (this.deathCallback) {
+        this.deathCallback();
+      }
+    });
+
+    this.addComponent(this.health);
 
     // Create and add Sprite component
     this.sprite = new Sprite(this.shipWidth, this.shipHeight);
@@ -134,6 +173,9 @@ export class Player extends Entity {
    */
   update(deltaTime: number): void {
     if (!this.active) return;
+
+    // Update health component (handles regeneration and invulnerability)
+    this.health.update(deltaTime);
 
     this.processInput(deltaTime);
     this.processWeaponInput(deltaTime);
@@ -682,19 +724,40 @@ export class Player extends Entity {
     }
 
     // Handle other collision types (enemies, obstacles, etc.)
+    // Check shield invulnerability first
     if (this.isInvulnerable()) {
       console.log(`Shield blocked collision with entity ${event.otherEntityId}`);
       return;
     }
 
-    console.log(`Player collided with entity ${event.otherEntityId}`);
-
-    // Create damage flash effect
-    if (this.visualEffectsCallback) {
-      this.visualEffectsCallback('damage_flash', { x: 0, y: 0 });
+    // Check health-based invulnerability (i-frames after taking damage)
+    if (this.health.isInvulnerable()) {
+      console.log(`Player is invulnerable, ignoring collision with entity ${event.otherEntityId}`);
+      return;
     }
 
-    // In a real game, this would handle damage, game over, etc.
+    console.log(`Player collided with entity ${event.otherEntityId}`);
+
+    // Determine damage based on collision type
+    let damage = 1; // Default damage
+    
+    // Different entities could deal different damage
+    // This could be expanded to check the other entity's type or damage component
+    if (event.otherCollider.layer === CollisionLayers.ENEMY) {
+      damage = 1; // Enemies deal 1 damage
+    } else if (event.otherCollider.layer === CollisionLayers.OBSTACLE) {
+      damage = 1; // Obstacles deal 1 damage
+    } else if (event.otherCollider.layer === CollisionLayers.PROJECTILE) {
+      damage = 1; // Enemy projectiles deal 1 damage
+    }
+
+    // Apply damage through health system
+    const died = this.health.takeDamage(damage);
+    
+    if (died) {
+      console.log('Player died from collision!');
+      // Death is handled by the health component's death callback
+    }
   }
 
   /**
@@ -755,22 +818,8 @@ export class Player extends Entity {
     }
 
     // Create visual feedback effect
-    this.createCollectionEffect(powerUp);
 
     return collected;
-  }
-
-  /**
-   * Create visual feedback effect for power-up collection
-   */
-  private createCollectionEffect(powerUp: PowerUp): void {
-    // In a full implementation, this would create particle effects, sound, etc.
-    // For now, we'll just log the collection
-    const position = powerUp.getPosition();
-    console.log(`Power-up collected at position (${position.x}, ${position.y}) - Score: +${powerUp.getScoreBonus()}`);
-
-    // TODO: Add particle effect system for visual feedback
-    // TODO: Add sound effect for collection
   }
 
   /**
@@ -806,5 +855,97 @@ export class Player extends Entity {
    */
   resetScore(): void {
     this.score = 0;
+  }
+
+  /**
+   * Get the health component
+   */
+  getHealth(): Health {
+    return this.health;
+  }
+
+  /**
+   * Get current health
+   */
+  getCurrentHealth(): number {
+    return this.health.getCurrentHealth();
+  }
+
+  /**
+   * Get maximum health
+   */
+  getMaxHealth(): number {
+    return this.health.getMaxHealth();
+  }
+
+  /**
+   * Get health as a percentage (0-1)
+   */
+  getHealthPercentage(): number {
+    return this.health.getHealthPercentage();
+  }
+
+  /**
+   * Check if player is alive
+   */
+  isAlive(): boolean {
+    return this.health.isAlive();
+  }
+
+  /**
+   * Take damage
+   */
+  takeDamage(damage: number): boolean {
+    return this.health.takeDamage(damage);
+  }
+
+  /**
+   * Heal health
+   */
+  heal(amount: number): number {
+    return this.health.heal(amount);
+  }
+
+  /**
+   * Set health to a specific value
+   */
+  setHealth(health: number): void {
+    this.health.setHealth(health);
+  }
+
+  /**
+   * Fully restore health
+   */
+  fullHeal(): void {
+    this.health.fullHeal();
+  }
+
+  /**
+   * Check if player has health-based invulnerability (i-frames)
+   */
+  hasHealthInvulnerability(): boolean {
+    return this.health.isInvulnerable();
+  }
+
+  /**
+   * Get remaining invulnerability time
+   */
+  getRemainingInvulnerabilityTime(): number {
+    return this.health.getRemainingInvulnerabilityTime();
+  }
+
+  /**
+   * Set death callback for game over handling
+   */
+  setDeathCallback(callback: () => void): void {
+    this.deathCallback = callback;
+  }
+
+  /**
+   * Reset player to full health and clear death state
+   */
+  resetHealth(): void {
+    this.health.reset();
+    this.active = true; // Reactivate the player
   }
 }

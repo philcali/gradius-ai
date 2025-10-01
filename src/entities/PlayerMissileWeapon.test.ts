@@ -11,16 +11,23 @@ import { BaseProjectile } from './ProjectileTypes';
 // Mock InputManager
 class MockInputManager extends InputManager {
   private pressedKeys: Set<string> = new Set();
+  private justPressedKeys: Set<string> = new Set();
+  private justReleasedKeys: Set<string> = new Set();
 
   constructor() {
     super(document.createElement('canvas'));
   }
 
   setKeyPressed(key: string, pressed: boolean): void {
+    const keyLower = key.toLowerCase();
     if (pressed) {
-      this.pressedKeys.add(key.toLowerCase());
+      if (!this.pressedKeys.has(keyLower)) {
+        this.justPressedKeys.add(keyLower);
+      }
+      this.pressedKeys.add(keyLower);
     } else {
-      this.pressedKeys.delete(key.toLowerCase());
+      this.pressedKeys.delete(keyLower);
+      this.justReleasedKeys.add(keyLower);
     }
   }
 
@@ -28,8 +35,27 @@ class MockInputManager extends InputManager {
     return this.pressedKeys.has(key.toLowerCase());
   }
 
+  isKeyJustPressed(key: string): boolean {
+    return this.justPressedKeys.has(key.toLowerCase());
+  }
+
+  isKeyJustReleased(key: string): boolean {
+    return this.justReleasedKeys.has(key.toLowerCase());
+  }
+
+  isAnyKeyJustPressed(keys: string[]): boolean {
+    return keys.some(key => this.isKeyJustPressed(key));
+  }
+
+  clearFrameInput(): void {
+    this.justPressedKeys.clear();
+    this.justReleasedKeys.clear();
+  }
+
   clearAllKeys(): void {
     this.pressedKeys.clear();
+    this.justPressedKeys.clear();
+    this.justReleasedKeys.clear();
   }
 }
 
@@ -123,6 +149,7 @@ describe('Player Missile Weapon Integration', () => {
       // Switch to missile weapon with '2' key
       mockInputManager.setKeyPressed('digit2', true);
       player.update(16.67);
+      mockInputManager.clearFrameInput();
       
       expect(player.getCurrentWeaponType()).toBe(WeaponType.MISSILE);
       
@@ -130,6 +157,7 @@ describe('Player Missile Weapon Integration', () => {
       mockInputManager.clearAllKeys();
       mockInputManager.setKeyPressed('digit3', true);
       player.update(16.67);
+      mockInputManager.clearFrameInput();
       
       expect(player.getCurrentWeaponType()).toBe(WeaponType.SPECIAL);
       
@@ -137,6 +165,7 @@ describe('Player Missile Weapon Integration', () => {
       mockInputManager.clearAllKeys();
       mockInputManager.setKeyPressed('digit1', true);
       player.update(16.67);
+      mockInputManager.clearFrameInput();
       
       expect(player.getCurrentWeaponType()).toBe(WeaponType.BEAM);
     });
@@ -147,6 +176,7 @@ describe('Player Missile Weapon Integration', () => {
       // Cycle to next weapon
       mockInputManager.setKeyPressed('tab', true);
       player.update(16.67);
+      mockInputManager.clearFrameInput();
       
       expect(player.getCurrentWeaponType()).toBe(WeaponType.MISSILE);
       
@@ -154,6 +184,7 @@ describe('Player Missile Weapon Integration', () => {
       mockInputManager.clearAllKeys();
       mockInputManager.setKeyPressed('tab', true);
       player.update(16.67);
+      mockInputManager.clearFrameInput();
       
       expect(player.getCurrentWeaponType()).toBe(WeaponType.SPECIAL);
       
@@ -161,6 +192,7 @@ describe('Player Missile Weapon Integration', () => {
       mockInputManager.clearAllKeys();
       mockInputManager.setKeyPressed('tab', true);
       player.update(16.67);
+      mockInputManager.clearFrameInput();
       
       expect(player.getCurrentWeaponType()).toBe(WeaponType.BEAM);
     });

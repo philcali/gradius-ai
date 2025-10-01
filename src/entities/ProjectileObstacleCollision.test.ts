@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Obstacle, ObstacleConfig } from './Obstacle';
 import { BeamProjectile } from './ProjectileTypes';
 import { CollisionSystem } from '../systems/CollisionSystem';
@@ -9,12 +9,27 @@ describe('Projectile-Obstacle Collision System', () => {
   let collisionSystem: CollisionSystem;
   let canvasWidth: number;
   let canvasHeight: number;
+  let mockTime: number;
 
   beforeEach(() => {
     collisionSystem = new CollisionSystem();
     canvasWidth = 800;
     canvasHeight = 600;
+    
+    // Mock Date.now for consistent timing in tests
+    mockTime = 1000;
+    vi.spyOn(Date, 'now').mockImplementation(() => mockTime);
   });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Helper function to advance mock time
+  const advanceTime = (ms: number) => {
+    mockTime += ms;
+    vi.spyOn(Date, 'now').mockImplementation(() => mockTime);
+  };
 
   describe('Destructible Obstacle Collisions', () => {
     it('should damage destructible obstacle when hit by projectile', () => {
@@ -112,7 +127,7 @@ describe('Projectile-Obstacle Collision System', () => {
       
       // Wait for invulnerability frames to expire
       const healthComponent = obstacle.getComponent<Health>(ComponentTypes.HEALTH);
-      healthComponent?.update(200); // 0.2 seconds (invulnerability is 0.1s)
+      advanceTime(200); // Advance time by 200ms (invulnerability is 100ms)
       
       // Second collision (need to create new projectile since first was destroyed)
       const projectile3 = new BeamProjectile(400, 300, 1, 0, canvasWidth, canvasHeight);
@@ -260,14 +275,14 @@ describe('Projectile-Obstacle Collision System', () => {
       
       // Wait for invulnerability frames to expire
       const healthComponent = obstacle.getComponent<Health>(ComponentTypes.HEALTH);
-      healthComponent?.update(200); // 0.2 seconds (invulnerability is 0.1s)
+      advanceTime(200); // Advance time by 200ms (invulnerability is 100ms)
       
       wasDestroyed = obstacle.takeDamage(1, 'test-projectile');
       expect(wasDestroyed).toBe(false);
       expect(obstacle.getHealth()).toBe(1);
       
       // Wait for invulnerability frames to expire again
-      healthComponent?.update(200); // 0.2 seconds (invulnerability is 0.1s)
+      advanceTime(200); // Advance time by another 200ms
       
       wasDestroyed = obstacle.takeDamage(1, 'test-projectile');
       expect(wasDestroyed).toBe(true);
@@ -296,7 +311,7 @@ describe('Projectile-Obstacle Collision System', () => {
       expect(obstacle.getHealth()).toBe(2); // No additional damage
       
       // Update to expire invulnerability
-      healthComponent?.update(200); // 0.2 seconds (invulnerability is 0.1s)
+      advanceTime(200); // Advance time by 200ms (invulnerability is 100ms)
       expect(healthComponent?.isInvulnerable()).toBe(false);
       
       // Now damage should work again

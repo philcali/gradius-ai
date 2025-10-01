@@ -48,7 +48,7 @@ export class GameplayScene implements Scene {
 
   update(deltaTime: number): void {
     // Handle pause input
-    if (this.inputManager.isKeyPressed('keyp') || this.inputManager.isKeyPressed('escape')) {
+    if (this.inputManager.isKeyJustPressed('keyp') || this.inputManager.isKeyJustPressed('escape')) {
       this.gameState.pauseGame();
       return;
     }
@@ -60,6 +60,7 @@ export class GameplayScene implements Scene {
     }
 
     // Check for game over conditions
+    // TODO: This is a good plce to check if the play is still alive
     if (this.player && !this.player.active) {
       // Create player destruction effect
       if (this.visualEffectsSystem) {
@@ -121,6 +122,13 @@ export class GameplayScene implements Scene {
       
       // Log collection for debugging
       console.log(`Power-up collected! Type: ${powerUp.getType()}, Score: ${this.gameState.getData().score}`);
+    });
+
+    // Set up player death callback
+    this.player.setDeathCallback(() => {
+      console.log('Player death callback triggered');
+      // Player death is handled in the main update loop
+      // This callback is just for immediate effects or logging
     });
 
     // Set up visual effects callback
@@ -406,18 +414,18 @@ export class GameplayScene implements Scene {
         transform.setVelocity(0, 0);
       }
       
-      // Reactivate player
-      this.player.active = true;
+      // Reset health and reactivate player
+      this.player.resetHealth();
       
-      // Give brief invincibility
-      // TODO: Implement invincibility frames
+      // Give brief invincibility after respawn (2 seconds)
+      this.player.getHealth().setInvulnerable(2000);
       
       // Create fade from black effect for respawn
       if (this.visualEffectsSystem) {
         this.visualEffectsSystem.createFadeFromBlack(this.entities, 500);
       }
       
-      console.log('Player respawned');
+      console.log('Player respawned with full health and temporary invincibility');
     }
   }
 

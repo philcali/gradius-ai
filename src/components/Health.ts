@@ -1,142 +1,137 @@
 /**
- * Health component for entities that can take damage and be destroyed
- * Provides health management, damage handling, and destruction callbacks
+ * Health component manages entity health, damage, and death
  */
 
-import { Component, ComponentTypes } from '../core/Component';
+import { Component } from '../core/interfaces';
 
 export interface HealthConfig {
-  /** Maximum health points */
   maxHealth: number;
-  /** Current health points (defaults to maxHealth if not specified) */
-  currentHealth?: number;
-  /** Whether the entity can be damaged */
-  invulnerable?: boolean;
-  /** Duration of invulnerability frames after taking damage (in seconds) */
-  invulnerabilityDuration?: number;
+  currentHealth: number;
+  invulnerabilityDuration?: number; // Milliseconds of invulnerability after taking damage
+  regeneration?: {
+    enabled: boolean;
+    rate: number; // Health per second
+    delay: number; // Milliseconds before regeneration starts after taking damage
+  };
 }
 
-export interface DamageEvent {
-  /** Amount of damage dealt */
-  damage: number;
-  /** ID of the entity that caused the damage */
-  sourceEntityId?: string | undefined;
-  /** Type of damage (for future expansion) */
-  damageType?: string | undefined;
-}
-
-export type DeathCallback = (entityId: string) => void;
-export type DamageCallback = (event: DamageEvent, remainingHealth: number) => void;
-
-export class Health extends Component {
-  public readonly type = ComponentTypes.HEALTH;
+export class Health implements Component {
+  readonly type = 'health';
 
   private maxHealth: number;
   private currentHealth: number;
-  private invulnerable: boolean;
   private invulnerabilityDuration: number;
-  private invulnerabilityTimer: number = 0;
+  private lastDamageTime: number = 0;
+  private regeneration: {
+    enabled: boolean;
+    rate: number;
+    delay: number;
+  } | undefined;
 
   // Callbacks
-  private onDeath?: DeathCallback | undefined;
-  private onDamage?: DamageCallback | undefined;
+  private onDamageCallback: ((damage: number, currentHealth: number, maxHealth: number) => void) | undefined;
+  private onDeathCallback: (() => void) | undefined;
+  private onHealCallback: ((healAmount: number, currentHealth: number, maxHealth: number) => void) | undefined;
 
   constructor(config: HealthConfig) {
-    super();
-    
-    this.maxHealth = Math.max(1, config.maxHealth);
-    this.currentHealth = config.currentHealth ?? this.maxHealth;
-    this.invulnerable = config.invulnerable ?? false;
-    this.invulnerabilityDuration = config.invulnerabilityDuration ?? 0;
-
-    // Ensure current health is within valid bounds
-    this.currentHealth = Math.max(0, Math.min(this.currentHealth, this.maxHealth));
+    this.maxHealth = config.maxHealth;
+    this.currentHealth = config.currentHealth;
+    this.invulnerabilityDuration = config.invulnerabilityDuration || 0;
+    this.regeneration = config.regeneration;
   }
 
   /**
-   * Update the health component (handles invulnerability timer)
+   * Update health component (handles regeneration)
    */
   update(deltaTime: number): void {
-    if (this.invulnerabilityTimer > 0) {
-      this.invulnerabilityTimer -= deltaTime / 1000; // Convert to seconds
-      if (this.invulnerabilityTimer <= 0) {
-        this.invulnerabilityTimer = 0;
+    if (this.regeneration?.enabled && this.currentHealth < this.maxHealth && this.lastDamageTime > 0) {
+      const timeSinceLastDamage = Date.now() - this.lastDamageTime;
+
+      if (timeSinceLastDamage >= this.regeneration.delay) {
+        const regenAmount = (this.regeneration.rate * deltaTime) / 1000;
+        this.heal(regenAmount, false); // Don't trigger heal callback for regeneration
       }
     }
   }
 
   /**
-   * Deal damage to this entity
-   * @param damage Amount of damage to deal
-   * @param sourceEntityId ID of the entity causing the damage
-   * @param damageType Type of damage (optional)
-   * @returns true if the entity was destroyed, false otherwise
+   * Take damage
    */
-  takeDamage(damage: number, sourceEntityId?: string, damageType?: string): boolean {
-    // Can't take damage if invulnerable or already dead
-    if (this.invulnerable || this.currentHealth <= 0 || this.isInvulnerable()) {
+  takeDamage(damage: number): boolean {
+    if (damage <= 0) return false;
+
+    // Check invulnerability
+    if (this.isInvulnerable()) {
       return false;
     }
 
-    const actualDamage = Math.max(0, damage);
-    const previousHealth = this.currentHealth;
-    
-    this.currentHealth = Math.max(0, this.currentHealth - actualDamage);
+    const actualDamage = Math.min(damage, this.currentHealth);
+    this.currentHealth -= actualDamage;
+    this.lastDamageTime = Date.now();
 
-    // Trigger invulnerability frames if configured
-    if (this.invulnerabilityDuration > 0 && this.currentHealth > 0) {
-      this.invulnerabilityTimer = this.invulnerabilityDuration;
+    // Trigger damage callback
+    if (this.onDamageCallback) {
+      this.onDamageCallback(actualDamage, this.currentHealth, this.maxHealth);
     }
 
-    // Call damage callback
-    if (this.onDamage && actualDamage > 0) {
-      const damageEvent: DamageEvent = {
-        damage: actualDamage,
-        sourceEntityId,
-        damageType
-      };
-      this.onDamage(damageEvent, this.currentHealth);
-    }
-
-    // Check if entity was destroyed
-    const wasDestroyed = previousHealth > 0 && this.currentHealth <= 0;
-    if (wasDestroyed && this.onDeath) {
-      this.onDeath(sourceEntityId || 'unknown');
-    }
-
-    return wasDestroyed;
-  }
-
-  /**
-   * Heal the entity
-   * @param amount Amount of health to restore
-   * @returns Actual amount healed
-   */
-  heal(amount: number): number {
+    // Check for death
     if (this.currentHealth <= 0) {
-      return 0; // Can't heal dead entities
+      this.currentHealth = 0;
+      if (this.onDeathCallback) {
+        this.onDeathCallback();
+      }
+      return true; // Entity died
     }
 
-    const actualHeal = Math.max(0, amount);
-    const previousHealth = this.currentHealth;
-    
-    this.currentHealth = Math.min(this.maxHealth, this.currentHealth + actualHeal);
-    
-    return this.currentHealth - previousHealth;
+    return false; // Entity survived
   }
 
   /**
-   * Set the entity's health to a specific value
-   * @param health New health value
+   * Heal health
+   */
+  heal(amount: number, triggerCallback: boolean = true): number {
+    if (amount <= 0) return 0;
+
+    const oldHealth = this.currentHealth;
+    this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount);
+    const actualHeal = this.currentHealth - oldHealth;
+
+    if (triggerCallback && actualHeal > 0 && this.onHealCallback) {
+      this.onHealCallback(actualHeal, this.currentHealth, this.maxHealth);
+    }
+
+    return actualHeal;
+  }
+
+  /**
+   * Set health to a specific value
    */
   setHealth(health: number): void {
-    const previousHealth = this.currentHealth;
-    this.currentHealth = Math.max(0, Math.min(health, this.maxHealth));
+    const oldHealth = this.currentHealth;
+    this.currentHealth = Math.max(0, Math.min(this.maxHealth, health));
 
-    // Check if entity was destroyed
-    const wasDestroyed = previousHealth > 0 && this.currentHealth <= 0;
-    if (wasDestroyed && this.onDeath) {
-      this.onDeath('direct');
+    // Check for death if health was reduced to 0
+    if (oldHealth > 0 && this.currentHealth <= 0) {
+      if (this.onDeathCallback) {
+        this.onDeathCallback();
+      }
+    }
+  }
+
+  /**
+   * Set maximum health and optionally adjust current health
+   */
+  setMaxHealth(maxHealth: number, adjustCurrent: boolean = false): void {
+    const oldMaxHealth = this.maxHealth;
+    this.maxHealth = Math.max(1, maxHealth);
+
+    if (adjustCurrent && oldMaxHealth > 0) {
+      // Scale current health proportionally
+      const healthRatio = this.currentHealth / oldMaxHealth;
+      this.currentHealth = Math.floor(this.maxHealth * healthRatio);
+    } else {
+      // Just clamp current health to new maximum
+      this.currentHealth = Math.min(this.currentHealth, this.maxHealth);
     }
   }
 
@@ -155,100 +150,114 @@ export class Health extends Component {
   }
 
   /**
-   * Get health as a percentage (0.0 to 1.0)
+   * Get health as a percentage (0-1)
    */
   getHealthPercentage(): number {
     return this.maxHealth > 0 ? this.currentHealth / this.maxHealth : 0;
   }
 
   /**
-   * Check if the entity is alive
+   * Check if entity is alive
    */
   isAlive(): boolean {
     return this.currentHealth > 0;
   }
 
   /**
-   * Check if the entity is dead
+   * Check if entity is at full health
    */
-  isDead(): boolean {
-    return this.currentHealth <= 0;
+  isFullHealth(): boolean {
+    return this.currentHealth >= this.maxHealth;
   }
 
   /**
-   * Check if the entity is currently invulnerable
+   * Check if entity is currently invulnerable
    */
   isInvulnerable(): boolean {
-    return this.invulnerable || this.invulnerabilityTimer > 0;
+    if (this.invulnerabilityDuration <= 0) return false;
+    return (Date.now() - this.lastDamageTime) < this.invulnerabilityDuration;
   }
 
   /**
-   * Set permanent invulnerability
-   */
-  setInvulnerable(invulnerable: boolean): void {
-    this.invulnerable = invulnerable;
-  }
-
-  /**
-   * Get remaining invulnerability time
+   * Get remaining invulnerability time in milliseconds
    */
   getRemainingInvulnerabilityTime(): number {
-    return this.invulnerabilityTimer;
+    if (this.invulnerabilityDuration <= 0) return 0;
+    const elapsed = Date.now() - this.lastDamageTime;
+    return Math.max(0, this.invulnerabilityDuration - elapsed);
   }
 
   /**
-   * Set the maximum health (also adjusts current health if necessary)
+   * Force invulnerability for a duration
    */
-  setMaxHealth(maxHealth: number): void {
-    this.maxHealth = Math.max(1, maxHealth);
-    this.currentHealth = Math.min(this.currentHealth, this.maxHealth);
+  setInvulnerable(duration: number): void {
+    this.invulnerabilityDuration = duration;
+    this.lastDamageTime = Date.now();
   }
 
   /**
-   * Set death callback
+   * Fully restore health
    */
-  setDeathCallback(callback: DeathCallback): void {
-    this.onDeath = callback;
+  fullHeal(): void {
+    this.setHealth(this.maxHealth);
   }
 
   /**
    * Set damage callback
    */
-  setDamageCallback(callback: DamageCallback): void {
-    this.onDamage = callback;
+  setOnDamageCallback(callback: (damage: number, currentHealth: number, maxHealth: number) => void): void {
+    this.onDamageCallback = callback;
   }
 
   /**
-   * Remove death callback
+   * Set death callback
    */
-  clearDeathCallback(): void {
-    this.onDeath = undefined;
+  setOnDeathCallback(callback: () => void): void {
+    this.onDeathCallback = callback;
   }
 
   /**
-   * Remove damage callback
+   * Set heal callback
    */
-  clearDamageCallback(): void {
-    this.onDamage = undefined;
+  setOnHealCallback(callback: (healAmount: number, currentHealth: number, maxHealth: number) => void): void {
+    this.onHealCallback = callback;
   }
 
   /**
-   * Reset health to maximum
+   * Enable or disable health regeneration
    */
-  resetHealth(): void {
+  setRegeneration(config: { enabled: boolean; rate: number; delay: number }): void {
+    this.regeneration = config;
+  }
+
+  /**
+   * Get regeneration config
+   */
+  getRegeneration(): { enabled: boolean; rate: number; delay: number } | undefined {
+    return this.regeneration ? { ...this.regeneration } : undefined;
+  }
+
+  /**
+   * Reset health to maximum and clear damage state
+   */
+  reset(): void {
     this.currentHealth = this.maxHealth;
-    this.invulnerabilityTimer = 0;
+    this.lastDamageTime = 0;
   }
 
   /**
-   * Get a copy of the health configuration
+   * Get time since last damage in milliseconds
    */
-  getConfig(): HealthConfig {
-    return {
-      maxHealth: this.maxHealth,
-      currentHealth: this.currentHealth,
-      invulnerable: this.invulnerable,
-      invulnerabilityDuration: this.invulnerabilityDuration
-    };
+  getTimeSinceLastDamage(): number {
+    return Date.now() - this.lastDamageTime;
+  }
+
+  /**
+   * Destroy the component
+   */
+  destroy(): void {
+    this.onDamageCallback = undefined;
+    this.onDeathCallback = undefined;
+    this.onHealCallback = undefined;
   }
 }
