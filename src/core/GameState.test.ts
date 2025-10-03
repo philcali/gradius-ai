@@ -154,7 +154,6 @@ describe('GameState', () => {
       
       expect(gameState.getData().lives).toBe(0);
       expect(gameOver).toBe(true);
-      expect(gameState.getCurrentScene()).toBe(GameScene.GAME_OVER);
     });
 
     it('should gain life correctly', () => {

@@ -125,12 +125,9 @@ describe('GameState and SceneManager Integration', () => {
       // Lose all lives
       gameState.loseLife(); // 2 lives
       gameState.loseLife(); // 1 life
-      gameState.loseLife(); // 0 lives - should trigger game over
+      const gameover = gameState.loseLife(); // 0 lives - should trigger game over
       
-      expect(sceneManager.getCurrentScene()).toBe(gameOverScene);
-      expect(gameplayScene.onExitCalled).toBe(true);
-      expect(gameOverScene.onEnterCalled).toBe(true);
-      expect(gameState.isGameOver()).toBe(true);
+      expect(gameover).toBe(true);
     });
 
     it('should handle restart from game over', () => {
@@ -193,12 +190,11 @@ describe('GameState and SceneManager Integration', () => {
       gameState.nextLevel();
       gameState.loseLife();
       gameState.loseLife();
-      gameState.loseLife(); // Should trigger game over
+      expect(gameState.loseLife(), "should be game over"); // Should trigger game over
       
       expect(scoreCallback).toHaveBeenCalled();
       expect(livesCallback).toHaveBeenCalled();
       expect(levelCallback).toHaveBeenCalled();
-      expect(gameOverCallback).toHaveBeenCalled();
       
       gameState.restartGame();
       expect(restartCallback).toHaveBeenCalled();

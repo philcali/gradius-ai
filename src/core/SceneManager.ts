@@ -9,22 +9,22 @@ export interface Scene {
   readonly name: string;
   entities: Entity[];
   systems: System[];
-  
+
   /** Called when scene becomes active */
   onEnter?(): void;
-  
+
   /** Called when scene becomes inactive */
   onExit?(): void;
-  
+
   /** Called each frame while scene is active */
   update?(deltaTime: number): void;
-  
+
   /** Called for rendering while scene is active */
   render?(ctx: CanvasRenderingContext2D): void;
-  
+
   /** Handle input events */
   handleInput?(inputState: InputState): void;
-  
+
   /** Clean up scene resources */
   destroy?(): void;
 }
@@ -38,7 +38,7 @@ export class SceneManager {
   constructor(gameState: GameState, ctx: CanvasRenderingContext2D) {
     this.gameState = gameState;
     this.ctx = ctx;
-    
+
     // Listen for scene changes from game state
     this.gameState.setCallbacks({
       ...this.gameState['callbacks'],
@@ -92,14 +92,18 @@ export class SceneManager {
    * Update current scene
    */
   update(deltaTime: number): void {
-    if (this.currentScene && this.currentScene.update) {
-      this.currentScene.update(deltaTime);
-    }
-
-    // Update scene systems
     if (this.currentScene) {
+      // Clean up inactive entities from previous frame first
+      this.cleanupInactiveEntities();
+
+      // Update scene logic
+      if (this.currentScene.update) {
+        this.currentScene.update(deltaTime);
+      }
+
+      // Update scene systems
       for (const system of this.currentScene.systems) {
-        const filteredEntities = system.filter 
+        const filteredEntities = system.filter
           ? this.currentScene.entities.filter(system.filter)
           : this.currentScene.entities;
         system.update(filteredEntities, deltaTime);
@@ -112,7 +116,16 @@ export class SceneManager {
         }
       }
 
-      // Clean up inactive entities
+      // Note: Cleanup of entities that became inactive this frame 
+      // will happen at the start of the next frame
+    }
+  }
+
+  /**
+   * Clean up inactive entities
+   */
+  private cleanupInactiveEntities(): void {
+    if (this.currentScene) {
       this.currentScene.entities = this.currentScene.entities.filter(entity => {
         if (!entity.active) {
           entity.destroy();

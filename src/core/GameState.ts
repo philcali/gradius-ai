@@ -233,7 +233,6 @@ export class GameState {
 
     // Check for game over
     if (this.data.lives <= 0) {
-      this.endGame();
       return true; // Game over
     }
     

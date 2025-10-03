@@ -44,6 +44,10 @@ export class Player extends Entity {
   // Death callback for game over handling
   private deathCallback?: () => void;
 
+  // Death state management
+  private isDying: boolean = false;
+  private deathHandled: boolean = false;
+
   // Score tracking for power-up collection
   private score: number = 0;
 
@@ -97,7 +101,7 @@ export class Player extends Entity {
 
     this.health.setOnDeathCallback(() => {
       console.log('Player died!');
-      this.active = false; // Deactivate the player entity
+      this.isDying = true; // Mark as dying but don't deactivate yet
       
       // Trigger death callback for game over handling
       if (this.deathCallback) {
@@ -177,9 +181,12 @@ export class Player extends Entity {
     // Update health component (handles regeneration and invulnerability)
     this.health.update(deltaTime);
 
-    this.processInput(deltaTime);
-    this.processWeaponInput(deltaTime);
-    this.constrainToBounds();
+    // Don't process input or movement if dying
+    if (!this.isDying) {
+      this.processInput(deltaTime);
+      this.processWeaponInput(deltaTime);
+      this.constrainToBounds();
+    }
 
     // Call parent update to update components
     super.update(deltaTime);
@@ -946,6 +953,30 @@ export class Player extends Entity {
    */
   resetHealth(): void {
     this.health.reset();
+    this.isDying = false;
+    this.deathHandled = false;
     this.active = true; // Reactivate the player
+  }
+
+  /**
+   * Check if player is in dying state
+   */
+  isDyingState(): boolean {
+    return this.isDying;
+  }
+
+  /**
+   * Check if player death has been handled
+   */
+  isDeathHandled(): boolean {
+    return this.deathHandled;
+  }
+
+  /**
+   * Mark player death as handled and deactivate the entity
+   */
+  markDeathHandled(): void {
+    this.deathHandled = true;
+    this.active = false; // Now it's safe to deactivate
   }
 }

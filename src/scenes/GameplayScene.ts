@@ -15,7 +15,7 @@ export class GameplayScene implements Scene {
   readonly name = 'GameplayScene';
   entities: Entity[] = [];
   systems: System[] = [];
-  
+
   private gameState: GameState;
   private ctx: CanvasRenderingContext2D;
   private canvasWidth: number;
@@ -60,8 +60,7 @@ export class GameplayScene implements Scene {
     }
 
     // Check for game over conditions
-    // TODO: This is a good plce to check if the play is still alive
-    if (this.player && !this.player.active) {
+    if (this.player && this.player.isDyingState() && !this.player.isDeathHandled()) {
       // Create player destruction effect
       if (this.visualEffectsSystem) {
         const playerTransform = this.player.getComponent<Transform>('transform');
@@ -77,7 +76,9 @@ export class GameplayScene implements Scene {
 
       // Player was destroyed
       if (this.gameState.loseLife()) {
-        // Game over
+        // Game over - mark death as handled so entity can be cleaned up
+        this.player.markDeathHandled();
+        this.gameState.endGame();
         return;
       } else {
         // Respawn player
@@ -119,7 +120,7 @@ export class GameplayScene implements Scene {
     this.player.setPowerUpCollectionCallback((powerUp: PowerUp, player: Player) => {
       // Update game state with collected power-up
       this.gameState.setScore(player.getScore());
-      
+
       // Log collection for debugging
       console.log(`Power-up collected! Type: ${powerUp.getType()}, Score: ${this.gameState.getData().score}`);
     });
@@ -176,7 +177,7 @@ export class GameplayScene implements Scene {
     this.collisionSystem = new CollisionSystem();
     this.collisionSystem.setDebugContext(this.ctx);
     this.collisionSystem.setDebugRender(false); // Disable debug rendering for gameplay
-    
+
     // Set up collision visual effects callback
     this.collisionSystem.setVisualEffectsCallback((effectType: string, position: { x: number; y: number }, data?: any) => {
       if (this.visualEffectsSystem) {
@@ -190,7 +191,7 @@ export class GameplayScene implements Scene {
         }
       }
     });
-    
+
     this.systems.push(this.collisionSystem);
 
     // Create and add the obstacle spawner system
@@ -216,7 +217,7 @@ export class GameplayScene implements Scene {
           }
         }
       });
-      
+
       this.entities.push(obstacle);
     });
 
@@ -234,7 +235,7 @@ export class GameplayScene implements Scene {
           }
         }
       });
-      
+
       this.entities.push(enemy);
     });
 
@@ -259,7 +260,7 @@ export class GameplayScene implements Scene {
           this.player.collectPowerUp(collectedPowerUp);
         }
       });
-      
+
       this.entities.push(powerUp);
     });
 
@@ -356,23 +357,23 @@ export class GameplayScene implements Scene {
       id,
       active: true,
       components: new Map(),
-      addComponent: function<T extends import('../core/interfaces').Component>(component: T): void {
+      addComponent: function <T extends import('../core/interfaces').Component>(component: T): void {
         this.components.set(component.type, component);
       },
-      getComponent: function<T extends import('../core/interfaces').Component>(type: string): T | undefined {
+      getComponent: function <T extends import('../core/interfaces').Component>(type: string): T | undefined {
         return this.components.get(type) as T | undefined;
       },
-      hasComponent: function(type: string): boolean {
+      hasComponent: function (type: string): boolean {
         return this.components.has(type);
       },
-      removeComponent: function(type: string): boolean {
+      removeComponent: function (type: string): boolean {
         const component = this.components.get(type);
         if (component && component.destroy) {
           component.destroy();
         }
         return this.components.delete(type);
       },
-      destroy: function(): void {
+      destroy: function (): void {
         this.active = false;
         for (const component of this.components.values()) {
           if (component.destroy) {
@@ -413,18 +414,18 @@ export class GameplayScene implements Scene {
         transform.setPosition(100, this.canvasHeight / 2);
         transform.setVelocity(0, 0);
       }
-      
+
       // Reset health and reactivate player
       this.player.resetHealth();
-      
+
       // Give brief invincibility after respawn (2 seconds)
       this.player.getHealth().setInvulnerable(2000);
-      
+
       // Create fade from black effect for respawn
       if (this.visualEffectsSystem) {
         this.visualEffectsSystem.createFadeFromBlack(this.entities, 500);
       }
-      
+
       console.log('Player respawned with full health and temporary invincibility');
     }
   }
